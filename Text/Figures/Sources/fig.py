@@ -32,7 +32,17 @@ atOpen = 1
 # fill styles
 fillStyleNone    = -1
 fillStyleSolid   = 20
-fillStyleStripes = 42
+fillStyleStripes = 42 # obsolete
+def fillStyleShaded(percent): # 0 = black .. 100 = fillColor (5% steps)
+	return int(percent) / 5
+def fillStyleTinted(percent): # 0 = fillColor .. 100 = white (5% steps)
+	return 20 + int(percent) / 5
+fillStyleLeft30    = 41 # 30 degree left diagonal pattern
+fillStyleRight30   = 42 # 30 degree right diagonal pattern
+fillStyleCrossed30 = 44 # 30 degree cross-hatched pattern
+fillStyleLeft45    = 44 # 45 degree left diagonal pattern
+fillStyleRight45   = 45 # 45 degree right diagonal pattern
+fillStyleCrossed45 = 46 # 45 degree cross-hatched pattern
 
 # colors
 colorDefault = -1
