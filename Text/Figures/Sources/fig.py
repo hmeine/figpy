@@ -180,7 +180,7 @@ class ArcBase(Object):
 			result += "\t" + str(self.forwardArrow)
 		if self.hasBackwardArrow:
 			result += "\t" + str(self.backwardArrow)
-		return result + "\n"
+		return result
 
 	def bounds(self):
 		result = _Rect()
@@ -472,24 +472,53 @@ class Compound:
 	def __init__(self, parent = None):
 		self.type = figCompoundBegin
 		self.objects = []
+		self.bounds = _Rect()
 		if parent != None:
 			parent.append(self)
 
 	def append(self, object):
 		self.objects.append(object)
+		#self.bounds(object.bounds())
 
 	def __str__(self):
 		if len(self.objects) < 1:
 			return ""
-		bounds = _Rect()
 		result = ""
 		for o in self.objects:
 			result += str(o)
-			bounds(o.bounds())
 		return _join(figCompoundBegin,
-					 int(bounds.x1), int(bounds.y1),
-					 int(bounds.x2), int(bounds.y2)) + "\n" + \
+					 int(self.bounds.x1), int(self.bounds.y1),
+					 int(self.bounds.x2), int(self.bounds.y2)) + "\n" + \
 			   result + str(figCompoundEnd) + "\n"
+
+def readCompound(params):
+	result = Compound()
+	result.bounds.x1 = int(params[0])
+	result.bounds.y1 = int(params[1])
+	result.bounds.x2 = int(params[2])
+	result.bounds.y2 = int(params[3])
+	return result
+
+class _AllObjectIter:
+	def __init__(self, file):
+		self.file = file
+		self.iters = [iter(file.objects)]
+
+	def __iter__(self):
+		return self
+	
+	def next(self):
+		if not len(self.iters) > 0:
+			raise StopIteration
+		try:
+			next = self.iters[-1].next()
+			if next.type == figCompoundBegin:
+				self.iters.append(iter(next.objects))
+			else:
+				return next
+		except StopIteration:
+			del self.iters[-1]
+		return self.next()
 
 class File:
 	def __init__(self, inputFile = None):
@@ -559,7 +588,7 @@ class File:
 						elif objectType == figEllipse:
 							currentObject, subLinesExpected = readEllipseBase(params[1:])
 						elif objectType == figCompoundBegin:
-							stack.append(Compound())
+							stack.append(readCompound(params[1:]))
 						elif objectType == figCompoundEnd:
 							currentObject = stack.pop()
 						else:
@@ -573,6 +602,9 @@ class File:
 							self.objects.append(currentObject)
 						currentObject = None
 				lineIndex += 1
+	
+	def allObjects(self):
+		return _AllObjectIter(self)
 
 	def append(self, object):
 		if object.__class__ == CustomColor:
