@@ -307,6 +307,17 @@ class PolylineBase(Object):
 def readPolylineBase(params):
 	result = PolylineBase()
 	result.subType = int(params[0])
+	if result.subType == ptPolyline:
+		result.__class__ == PolyLine
+	if result.subType == ptBox:
+		result.__class__ = PolyBox
+	if result.subType == ptPolygon:
+		result.__class__ == Polygon
+	if result.subType == ptArcBox:
+		#result.__class__ == (not existing yet)
+		pass
+	if result.subType == ptPictureBBox:
+		result.__class__ == PolyLine
 	result.lineStyle = int(params[1])
 	result.lineWidth = int(params[2])
 	result.penColor = int(params[3])
