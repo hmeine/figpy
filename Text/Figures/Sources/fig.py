@@ -122,6 +122,12 @@ class _Rect:
 				self.x2 = max(self.x2, other[0])
 				self.y2 = max(self.y2, other[1])
 
+	def width(self):
+		return self.x2 - self.x1
+
+	def height(self):
+		return self.y2 - self.y1
+
 class CustomColor:
 	def __init__(self, index, hexCode):
 		self.index = index
@@ -285,6 +291,7 @@ class PolylineBase(Object):
 		self.points = []
 		self.closed = 1
 		self.pictureFilename = None
+		self.flipped = 0
 
 	def __str__(self):
 		pointCount = len(self.points)
@@ -305,6 +312,7 @@ class PolylineBase(Object):
 			result += "\t" + str(self.backwardArrow)
 		if self.subType == ptPictureBBox:
 			result += "\t" + _join(self.flipped, self.pictureFilename) + "\n"
+		# TODO: write only six points per line
 		result += "\t" + _join(self.points[0][0], self.points[0][1])
 		for point in self.points[1:]:
 			result += _join("", point[0], point[1])
@@ -337,27 +345,29 @@ class PolylineBase(Object):
 			self.points.append((int(params[pointIndex * 2]),
 								int(params[pointIndex * 2 + 1])))
 		if len(self.points) > self._pointCount:
+			if len(self.points) > self._pointCount + 1 or not self.closed:
+				sys.stderr.write("WARNING: read too many points?!\n")
 			del self.points[self._pointCount:]
 		return len(self.points) < self._pointCount
 
 def readPolylineBase(params):
 	result = PolylineBase()
 	result.subType = int(params[0])
-	if result.subType == ptPolygon or result.subType == ptBox:
-		result.closed = 1
-	else:
-		result.closed = 0
+	result.closed = 0
 	if result.subType == ptPolyline:
-		result.__class__ == PolyLine
+		result.__class__ = PolyLine
 	if result.subType == ptBox:
 		result.__class__ = PolyBox
+		result.closed = 1
 	if result.subType == ptPolygon:
-		result.__class__ == Polygon
+		result.__class__ = Polygon
+		result.closed = 1
 	if result.subType == ptArcBox:
-		#result.__class__ == (not existing yet)
+		#result.__class__ = (not existing yet)
 		pass
 	if result.subType == ptPictureBBox:
-		result.__class__ == PictureBBox
+		result.__class__ = PictureBBox
+		result.closed = 1
 	result.lineStyle = int(params[1])
 	result.lineWidth = int(params[2])
 	result.penColor = int(params[3])
@@ -392,6 +402,10 @@ class PolyBox(PolylineBase):
 		self.points.append((x2, y2))
 		self.points.append((x1, y2))
 		self.closed = 1
+
+	def center(self):
+		return ((self.points[0][0] + self.points[2][0])/2,
+				(self.points[0][1] + self.points[2][1])/2)
 
 class Polygon(PolylineBase):
 	def __init__(self, points, closed):
@@ -479,7 +493,7 @@ def readSplineBase(params):
 	result = SplineBase()
 	result.subType = int(params[0])
 #	if result.subType == st:
-#		result.__class__ ==
+#		result.__class__ =
 	result.lineStyle = int(params[1])
 	result.lineWidth = int(params[2])
 	result.penColor = int(params[3])
