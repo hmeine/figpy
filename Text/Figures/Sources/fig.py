@@ -47,6 +47,12 @@ fillStyleCrossed45 = 46 # 45 degree cross-hatched pattern
 # colors
 colorDefault = -1
 colorBlack   = 0
+colorBlue    = 1
+colorGreen   = 2
+colorCyan    = 3
+colorRed     = 4
+colorMagenta = 5
+colorYellow  = 6
 colorWhite   = 7
 colorRed4    = 18
 colorRed3    = 19
@@ -69,6 +75,28 @@ ffHidden     = 8
 
 def _join(*sequence):
 	return string.join([str(item) for item in sequence], " ")
+
+re_size = re.compile("([0-9]+)x([0-9]+)")
+re_geometry = re.compile("([0-9]+)[:,]([0-9]+)([+-:,])([0-9]+)([x:,])([0-9]+)")
+
+def parseSize(sizeStr):
+	ma = re_size.match(sizeString)
+	if ma:
+		w = int(ma.group(1))
+		h = int(ma.group(2))
+		return (w, h)
+
+def parseGeometry(geometryString):
+	ma = re_geometry.match(geometryString)
+	if ma:
+		x1 = int(ma.group(1))
+		y1 = int(ma.group(2))
+		vx2 = int(ma.group(4))
+		vy2 = int(ma.group(6))
+		if ma.group(3) == "+" or ma.group(5) == "x":
+			return ((x1, y1), (x1+vx2, y1+vy2))
+		else:
+			return ((x1, y1), (vx2, vy2))
 
 class _Rect:
 	def __init__(self):
@@ -327,7 +355,7 @@ def readPolylineBase(params):
 		#result.__class__ == (not existing yet)
 		pass
 	if result.subType == ptPictureBBox:
-		result.__class__ == PolyLine
+		result.__class__ == PictureBBox
 	result.lineStyle = int(params[1])
 	result.lineWidth = int(params[2])
 	result.penColor = int(params[3])
@@ -374,6 +402,18 @@ class PolyLine(PolylineBase):
 		self.subType = ptPolyline
 		self.points = points
 		self.closed = 0
+
+class PictureBBox(PolylineBase):
+	def __init__(self, x1, y1, x2, y2, filename, flipped = 0):
+		PolylineBase.__init__(self)
+		self.subType = ptPictureBBox
+		self.points.append((x1, y1))
+		self.points.append((x2, y1))
+		self.points.append((x2, y2))
+		self.points.append((x1, y2))
+		self.pictureFilename = filename
+		self.flipped = flipped
+		self.closed = 1
 
 class Text(Object):
 	def __init__(self, x, y, text, alignment = alignLeft):
@@ -451,6 +491,7 @@ class File:
 	def __init__(self, filename = None):
 		self.objects = []
 		self.colors = []
+		self.colorhash = {}
 
 		if filename == None:
 			self.landscape = 1
@@ -535,6 +576,15 @@ class File:
 		result = CustomColor(32 + len(self.colors), colorCode)
 		self.colors.append(result)
 		return result
+
+	def getColor(self, color):
+		color = "#%02x%02x%02x" % tuple(color)
+		if not self.colorhash.has_key(color):
+			self.colorhash[color] = self.addColor(color)
+		return self.colorhash[color]
+
+	def gray(self, grayLevel):
+		return getColor((grayLevel, grayLevel, grayLevel))
 
 	def __str__(self):
 		result = "#FIG 3.2\n"
