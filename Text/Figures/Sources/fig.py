@@ -4,6 +4,7 @@ import sys, string, types, re
 figCustomColor   = 0
 figEllipse       = 1
 figPolygon       = 2
+figSpline        = 3
 figText          = 4
 figArc           = 5
 figCompoundBegin = 6
@@ -149,7 +150,9 @@ class Object:
 		self.capStyle = 0
 		self.radius = -1
 		self.hasForwardArrow = 0
+		self.forwardArrow = None
 		self.hasBackwardArrow = 0
+		self.backwardArrow = None
 
 class Arrow:
 	def __init__(self, params):
@@ -188,18 +191,17 @@ class ArcBase(Object):
 			result(point)
 		return result
 
-	def readSub(self, lineIndex, params):
-		if not self.hasForwardArrow:
-			lineIndex += 1
-		if lineIndex == 0:
+	def readSub(self, params):
+		if self.hasForwardArrow and self.forwardArrow == None:
 			self.forwardArrow = Arrow(params)
-			return
+			return self.hasBackwardArrow
 
-		if lineIndex == 1:
+		if self.hasBackwardArrow and self.backwardArrow == None:
 			self.backwardArrow = Arrow(params)
-			return
+			return 0
 
-		sys.stderr.write("Unhandled sublineIndex for arc object: %i!\n" % lineIndex)
+		sys.stderr.write("Unhandled subline while loading arc object!\n")
+		return 0
 
 def readArcBase(params):
 	result = ArcBase()
@@ -282,6 +284,7 @@ class PolylineBase(Object):
 		Object.__init__(self, figPolygon)
 		self.points = []
 		self.closed = 1
+		self.pictureFilename = None
 
 	def __str__(self):
 		pointCount = len(self.points)
@@ -315,39 +318,35 @@ class PolylineBase(Object):
 			result(point)
 		return result
 
-	def readSub(self, lineIndex, params):
-		if not self.hasForwardArrow:
-			lineIndex += 1
-		if lineIndex == 0:
+	def readSub(self, params):
+		if self.hasForwardArrow and self.forwardArrow == None:
 			self.forwardArrow = Arrow(params)
-			return
+			return 1
 
-		if not self.hasBackwardArrow:
-			lineIndex += 1
-		if lineIndex == 1:
+		if self.hasBackwardArrow and self.backwardArrow == None:
 			self.backwardArrow = Arrow(params)
-			return
+			return 1
 
-		if not self.subType == ptPictureBBox:
-			lineIndex += 1
-		if lineIndex == 2:
+		if self.subType == ptPictureBBox and self.pictureFilename == None:
 			self.flipped = int(params[0])
 			self.pictureFilename = params[1]
-			return
+			return 1
 
 		pointCount = len(params) / 2
-		if self.subType == ptPolygon or self.subType == ptBox:
-			self.closed = 1
-			pointCount -= 1
-		else:
-			self.closed = 0
 		for pointIndex in range(pointCount):
 			self.points.append((int(params[pointIndex * 2]),
 								int(params[pointIndex * 2 + 1])))
+		if len(self.points) > self._pointCount:
+			del self.points[self._pointCount:]
+		return len(self.points) < self._pointCount
 
 def readPolylineBase(params):
 	result = PolylineBase()
 	result.subType = int(params[0])
+	if result.subType == ptPolygon or result.subType == ptBox:
+		result.closed = 1
+	else:
+		result.closed = 0
 	if result.subType == ptPolyline:
 		result.__class__ == PolyLine
 	if result.subType == ptBox:
@@ -372,8 +371,10 @@ def readPolylineBase(params):
 	result.radius = int(params[11])
 	result.hasForwardArrow = int(params[12])
 	result.hasBackwardArrow = int(params[13])
-	# pointCount = int(params[14])
-	subLines = 1 # for the points
+	result._pointCount = int(params[14])
+	subLines = (result._pointCount+5)/6 # for the points
+	if result.closed:
+		result._pointCount -= 1
 	if result.hasForwardArrow:
 		subLines += 1
 	if result.hasBackwardArrow:
@@ -417,6 +418,86 @@ class PictureBBox(PolylineBase):
 		self.pictureFilename = filename
 		self.flipped = flipped
 		self.closed = 1
+
+class SplineBase(Object):
+	def __init__(self):
+		Object.__init__(self, figSpline)
+		self.points = []
+		self.closed = 1
+
+	def __str__(self):
+		pointCount = len(self.points)
+		if self.closed:
+			pointCount += 1
+		result = _join(self.type, self.subType,
+					   self.lineStyle, self.lineWidth,
+					   self.penColor, self.fillColor,
+					   self.depth, self.penStyle,
+					   self.fillStyle, self.styleValue, self.capStyle,
+					   self.hasForwardArrow, self.hasBackwardArrow,
+					   pointCount) + "\n"
+
+		if self.hasForwardArrow:
+			result += "\t" + str(self.forwardArrow)
+		if self.hasBackwardArrow:
+			result += "\t" + str(self.backwardArrow)
+		result += "\t" + _join(self.points[0][0], self.points[0][1])
+		for point in self.points[1:]:
+			result += _join("", point[0], point[1])
+		if self.closed:
+			result += _join("", self.points[0][0], self.points[0][1])
+		return result + "\n\t" + _join(*self.shapefactors) + "\n"
+
+	def bounds(self):
+		result = _Rect()
+		for point in self.points:
+			result(point)
+		return result
+
+	def readSub(self, params):
+		if self.hasForwardArrow and self.forwardArrow == None:
+			self.forwardArrow = Arrow(params)
+			return 1
+
+		if self.hasBackwardArrow and self.backwardArrow == None:
+			self.backwardArrow = Arrow(params)
+			return 1
+
+		if len(self.points) < self._pointCount:
+			pointCount = len(params) / 2
+			for pointIndex in range(pointCount):
+				self.points.append((int(params[pointIndex * 2]),
+									int(params[pointIndex * 2 + 1])))
+			if len(self.points) > self._pointCount:
+				del self.points[self._pointCount:]
+			return 1
+
+		# FIXME more than one line, too?
+		self.shapefactors = params
+
+def readSplineBase(params):
+	result = SplineBase()
+	result.subType = int(params[0])
+#	if result.subType == st:
+#		result.__class__ ==
+	result.lineStyle = int(params[1])
+	result.lineWidth = int(params[2])
+	result.penColor = int(params[3])
+	result.fillColor = int(params[4])
+	result.depth = int(params[5])
+	result.penStyle = int(params[6])
+	result.fillStyle = int(params[7])
+	result.styleValue = float(params[8])
+	result.capStyle = int(params[9])
+	result.hasForwardArrow = int(params[10])
+	result.hasBackwardArrow = int(params[11])
+	# pointCount = int(params[12])
+	subLines = 2 # for the points and shape factors
+	if result.hasForwardArrow:
+		subLines += 1
+	if result.hasBackwardArrow:
+		subLines += 1
+	return result, subLines
 
 class Text(Object):
 	def __init__(self, x, y, text, alignment = alignLeft):
@@ -506,7 +587,7 @@ class _AllObjectIter:
 
 	def __iter__(self):
 		return self
-	
+
 	def next(self):
 		if not len(self.iters) > 0:
 			raise StopIteration
@@ -539,8 +620,7 @@ class File:
 			lineIndex = 0
 			stack = []
 			currentObject = None
-			subLinesExpected = 0
-			subLineIndex = 0
+			subLineExpected = 0
 			if type(inputFile) == types.StringType:
 				inputFile = file(inputFile).readlines()
 			elif type(inputFile) == types.FileType:
@@ -568,25 +648,26 @@ class File:
 					res, sysDummy = re.split(" +", line)
 					self.ppi = int(res)
 				else:
+				  try:
 					params = re.split(" +", line)
-					if subLinesExpected > subLineIndex:
-						currentObject.readSub(subLineIndex, params)
-						subLineIndex += 1
+					if subLineExpected:
+						subLineExpected = currentObject.readSub(params)
 					else:
 						objectType = int(params[0])
-						subLineIndex = 0
-						subLinesExpected = 0
+						subLineExpected = 0
 						if objectType == figCustomColor:
 							self.colors.append(
 								CustomColor(int(params[1]), params[2]))
 						elif objectType == figPolygon:
-							currentObject, subLinesExpected = readPolylineBase(params[1:])
+							currentObject, subLineExpected = readPolylineBase(params[1:])
 						elif objectType == figArc:
-							currentObject, subLinesExpected = readArcBase(params[1:])
+							currentObject, subLineExpected = readArcBase(params[1:])
+						elif objectType == figSpline:
+							currentObject, subLineExpected = readSplineBase(params[1:])
 						elif objectType == figText:
-							currentObject, subLinesExpected = readText(params[1:])
+							currentObject, subLineExpected = readText(params[1:])
 						elif objectType == figEllipse:
-							currentObject, subLinesExpected = readEllipseBase(params[1:])
+							currentObject, subLineExpected = readEllipseBase(params[1:])
 						elif objectType == figCompoundBegin:
 							stack.append(readCompound(params[1:]))
 						elif objectType == figCompoundEnd:
@@ -595,14 +676,18 @@ class File:
 							sys.stderr.write("Unhandled object type in line %i:\n%s" %
 											 (lineIndex, line))
 							sys.exit(1)
-					if currentObject != None and subLinesExpected == subLineIndex:
+					if currentObject != None and not subLineExpected:
 						if len(stack) > 0:
 							stack[-1].append(currentObject)
 						else:
 							self.objects.append(currentObject)
 						currentObject = None
+				  except ValueError:
+					  sys.stderr.write("Parse in line %i:\n%s\n\n" %
+											 (lineIndex, line))
+					  raise
 				lineIndex += 1
-	
+
 	def allObjects(self):
 		return _AllObjectIter(self)
 
@@ -619,6 +704,8 @@ class File:
 		return result
 
 	def getColor(self, color):
+		if type(color) == types.FloatType: # accept grayvalues as float
+			color = int(color)
 		if type(color) == types.IntType: # accept grayvalues as int
 			color = (color, color, color)
 		if type(color) == types.TupleType: # accept colors as 3-tuple
