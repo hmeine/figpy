@@ -340,6 +340,13 @@ class PolyBox(PolylineBase):
 		self.points.append((x1, y2))
 		self.closed = 1
 
+class Polygon(PolylineBase):
+	def __init__(self, points, closed):
+		PolylineBase.__init__(self)
+		self.subType = ptPolygon
+		self.points = points
+		self.closed = closed
+
 class PolyLine(PolylineBase):
 	def __init__(self, *points):
 		PolylineBase.__init__(self)
