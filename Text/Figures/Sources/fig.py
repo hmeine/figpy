@@ -57,6 +57,7 @@ colorWhite   = 7
 colorRed4    = 18
 colorRed3    = 19
 colorRed2    = 20
+colorCustom0 = 32
 
 # alignments
 alignLeft     = 0
@@ -121,18 +122,20 @@ class _Rect:
 				self.y2 = max(self.y2, other[1])
 
 class CustomColor:
-	def __init__(self, index, colorCode):
+	def __init__(self, index, hexCode):
 		self.index = index
-		self.colorCode = colorCode
+		self.hexCode = hexCode
+		#sys.stderr.write("CustomColor(%d, '%s') -> %s" % (index, hexCode, repr(self)))
 
 	def __repr__(self):
-		return _join(figCustomColor, self.index, self.colorCode) + "\n"
+		return _join(figCustomColor, self.index, self.hexCode) + "\n"
 
 	def __str__(self):
 		return str(self.index)
 
 class Object:
-	def __init__(self):
+	def __init__(self, type):
+		self.type = type
 		self.subType = None
 		self.lineStyle = lineStyleDefault
 		self.lineWidth = 1
@@ -157,11 +160,11 @@ class Arrow:
 
 class ArcBase(Object):
 	def __init__(self):
-		Object.__init__(self)
+		Object.__init__(self, figArc)
 		self.points = []
 
 	def __str__(self):
-		result = _join(figPolygon, self.subType,
+		result = _join(self.type, self.subType,
 					   self.lineStyle, self.lineWidth,
 					   self.penColor, self.fillColor,
 					   self.depth, self.penStyle,
@@ -228,7 +231,7 @@ def readArcBase(params):
 
 class EllipseBase(Object):
 	def __init__(self):
-		Object.__init__(self)
+		Object.__init__(self, figEllipse)
 		self.angle = 0.0
 		self.center = (0, 0)
 		self.radius = (0, 0)
@@ -236,17 +239,17 @@ class EllipseBase(Object):
 		self.end = (0, 0)
 
 	def __str__(self):
-		return _join(figEllipse, self.subType,
-					   self.lineStyle, self.lineWidth,
-					   self.penColor, self.fillColor,
-					   self.depth, self.penStyle,
-					   self.fillStyle, self.styleValue,
-					   1, # "1" is self.direction
-					   self.angle,
-					   self.center[0], self.center[1],
-					   self.radius[0], self.radius[1],
-					   self.start[0], self.start[1],
-					   self.end[0], self.end[1]) + "\n"
+		return _join(self.type, self.subType,
+					 self.lineStyle, self.lineWidth,
+					 self.penColor, self.fillColor,
+					 self.depth, self.penStyle,
+					 self.fillStyle, self.styleValue,
+					 1, # "1" is self.direction
+					 self.angle,
+					 self.center[0], self.center[1],
+					 self.radius[0], self.radius[1],
+					 self.start[0], self.start[1],
+					 self.end[0], self.end[1]) + "\n"
 
 	def bounds(self):
 		result = _Rect()
@@ -276,7 +279,7 @@ def readEllipseBase(params):
 
 class PolylineBase(Object):
 	def __init__(self):
-		Object.__init__(self)
+		Object.__init__(self, figPolygon)
 		self.points = []
 		self.closed = 1
 
@@ -284,7 +287,7 @@ class PolylineBase(Object):
 		pointCount = len(self.points)
 		if self.closed:
 			pointCount += 1
-		result = _join(figPolygon, self.subType,
+		result = _join(self.type, self.subType,
 					   self.lineStyle, self.lineWidth,
 					   self.penColor, self.fillColor,
 					   self.depth, self.penStyle,
@@ -417,7 +420,7 @@ class PictureBBox(PolylineBase):
 
 class Text(Object):
 	def __init__(self, x, y, text, alignment = alignLeft):
-		Object.__init__(self)
+		Object.__init__(self, figText)
 		self.text = text
 		self.font = fontDefault
 		self.fontSize = 12.0
@@ -443,7 +446,7 @@ class Text(Object):
 		return result
 
 	def __str__(self):
-		result = _join(figText, self.subType,
+		result = _join(self.type, self.subType,
 					   self.penColor, self.depth, self.penStyle,
 					   self.font, self.fontSize, self.fontAngle, self.fontFlags,
 					   self.height, self.length, self.x, self.y,
@@ -467,6 +470,7 @@ def readText(params):
 
 class Compound:
 	def __init__(self, parent = None):
+		self.type = figCompoundBegin
 		self.objects = []
 		if parent != None:
 			parent.append(self)
@@ -488,12 +492,12 @@ class Compound:
 			   result + str(figCompoundEnd) + "\n"
 
 class File:
-	def __init__(self, filename = None):
+	def __init__(self, inputFile = None):
 		self.objects = []
 		self.colors = []
 		self.colorhash = {}
 
-		if filename == None:
+		if inputFile == None:
 			self.landscape = 1
 			self.centered = 1
 			self.metric = 1
@@ -508,7 +512,11 @@ class File:
 			currentObject = None
 			subLinesExpected = 0
 			subLineIndex = 0
-			for line in file(filename).readlines():
+			if type(inputFile) == types.StringType:
+				inputFile = file(inputFile).readlines()
+			elif type(inputFile) == types.FileType:
+				inputFile = inputFile.readlines()
+			for line in inputFile:
 				if line.startswith("#"):
 					continue
 				line = line.strip()
@@ -572,16 +580,23 @@ class File:
 		else:
 			self.objects.append(object)
 
-	def addColor(self, colorCode):
-		result = CustomColor(32 + len(self.colors), colorCode)
+	def addColor(self, hexCode):
+		result = CustomColor(colorCustom0 + len(self.colors), hexCode)
 		self.colors.append(result)
+		self.colorhash[hexCode] = result
 		return result
 
 	def getColor(self, color):
-		color = "#%02x%02x%02x" % tuple(color)
-		if not self.colorhash.has_key(color):
-			self.colorhash[color] = self.addColor(color)
-		return self.colorhash[color]
+		if type(color) == types.IntType: # accept grayvalues as int
+			color = (color, color, color)
+		if type(color) == types.TupleType: # accept colors as 3-tuple
+			color = "#%02x%02x%02x" % color
+		if type(color) != types.StringType: # accept RGB color objects
+			color = "#%02x%02x%02x" % tuple(color)
+		try:
+			return self.colorhash[color]
+		except KeyError:
+			return self.addColor(color)
 
 	def gray(self, grayLevel):
 		return getColor((grayLevel, grayLevel, grayLevel))
