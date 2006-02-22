@@ -1,4 +1,10 @@
-import sys, string, types, re
+"""'fig' module - object-oriented interface to XFig files.
+
+You can read fig files into an object 'f' with
+  f = fig.File(filename) # or pass a file-like object
+New files can be created"""
+
+import sys, string, re, math
 
 # object codes
 figCustomColor   = 0
@@ -26,6 +32,12 @@ ptPolygon     = 3
 ptArcBox      = 4
 ptPictureBBox = 5
 
+# ellipse types
+etEllipseRadii    = 1
+etEllipseDiameter = 2
+etCircleRadius    = 3
+etCircleDiameter  = 4
+
 # arc types
 atPie  = 0
 atOpen = 1
@@ -44,6 +56,41 @@ fillStyleCrossed30 = 44 # 30 degree cross-hatched pattern
 fillStyleLeft45    = 44 # 45 degree left diagonal pattern
 fillStyleRight45   = 45 # 45 degree right diagonal pattern
 fillStyleCrossed45 = 46 # 45 degree cross-hatched pattern
+
+standardColors = [
+	(0, 0, 0),
+	(0, 0, 255),
+	(0, 255, 0),
+	(0, 255, 255),
+	(255, 0, 0),
+	(255, 0, 255),
+	(255, 255, 0),
+	(255, 255, 255),
+	(0, 0, 144),
+	(0, 0, 176),
+	(0, 0, 208),
+	(135, 206, 255),
+	(0, 144, 0),
+	(0, 176, 0),
+	(0, 208, 0),
+	(0, 144, 144),
+	(0, 176, 176),
+	(0, 208, 208),
+	(144, 0, 0),
+	(176, 0, 0),
+	(208, 0, 0),
+	(144, 0, 144),
+	(176, 0, 176),
+	(208, 0, 208),
+	(128, 48, 0),
+	(160, 64, 0),
+	(192, 96, 0),
+	(255, 128, 128),
+	(255, 160, 160),
+	(255, 192, 192),
+	(255, 224, 224),
+	(255, 215, 0),
+	]
 
 # colors
 colorDefault = -1
@@ -76,13 +123,19 @@ ffPostScript = 4
 ffHidden     = 8
 
 def _join(*sequence):
-	return string.join([str(item) for item in sequence], " ")
+	parts = []
+	for item in sequence:
+		if type(item) == float:
+			parts.append(str(int(round(item))))
+		else:
+			parts.append(str(item))
+	return string.join(parts, " ")
 
 re_size = re.compile("([0-9]+)x([0-9]+)")
 re_geometry = re.compile("([0-9]+)[:,]([0-9]+)([+-:,])([0-9]+)([x:,])([0-9]+)")
 
 def parseSize(sizeStr):
-	ma = re_size.match(sizeString)
+	ma = re_size.match(sizeStr)
 	if ma:
 		w = int(ma.group(1))
 		h = int(ma.group(2))
@@ -100,20 +153,19 @@ def parseGeometry(geometryString):
 		else:
 			return ((x1, y1), (vx2, vy2))
 
-class _Rect:
+class _Rect(object):
 	def __init__(self):
 		self.empty = 1
 
 	def __call__(self, other):
-		if type(other) == types.InstanceType:
-			if other.__class__ == _Rect:
-				self.__call__((other.x1, other.y1))
-				self.__call__((other.x2, other.y2))
+		if type(other) == _Rect:
+			self.__call__((other.x1, other.y1))
+			self.__call__((other.x2, other.y2))
 		else:
 			if self.empty:
 				self.x1 = other[0]
-				self.x2 = other[1]
-				self.y1 = other[0]
+				self.x2 = other[0]
+				self.y1 = other[1]
 				self.y2 = other[1]
 				self.empty = 0
 			else:
@@ -128,7 +180,10 @@ class _Rect:
 	def height(self):
 		return self.y2 - self.y1
 
-class CustomColor:
+	def __str__(self):
+		return "%d,%d,%d,%d" % (self.x1, self.y1, self.x2, self.y2)
+
+class CustomColor(object):
 	def __init__(self, index, hexCode):
 		self.index = index
 		self.hexCode = hexCode
@@ -140,7 +195,32 @@ class CustomColor:
 	def __str__(self):
 		return str(self.index)
 
-class Object:
+	def __int__(self):
+		return self.index
+
+	def __cmp__(self, other):
+		if other == None:
+			return 1
+		if other.isinstance(other, CustomColor):
+			return cmp(self.index, other.index)
+		return cmp(self.index, other)
+
+	def __getitem__(self, index):
+		return int(self.hexCode[2*index+1:2*index+3], 16)
+
+	def rgb(self):
+		return (self[0], self[1], self[2])
+
+	def setRGB(self, r, g, b):
+		self.hexCode = "#%02x%02x%02x" % (r, g, b)
+
+class Object(object):
+	"""Base class of all fig objects, handles common properties like
+	- lineStyle, lineWidth, styleValue (dash length / dot gap ratio)
+	- penColor, fillColor, fillStyle
+	- depth
+	- joinStyle and capStyle
+	- forwardArrow/backwardArrow (the latter are Arrow objects)"""
 	def __init__(self, type):
 		self.type = type
 		self.subType = None
@@ -150,17 +230,15 @@ class Object:
 		self.fillColor = colorDefault
 		self.depth = 50
 		self.penStyle = 0 # not used
-		self.fillStyle = -1
-		self.styleValue = 0.0
+		self.fillStyle = fillStyleNone
+		self.styleValue = 3.0
 		self.joinStyle = 0
 		self.capStyle = 0
 		self.radius = -1
-		self.hasForwardArrow = 0
 		self.forwardArrow = None
-		self.hasBackwardArrow = 0
 		self.backwardArrow = None
 
-class Arrow:
+class Arrow(object):
 	def __init__(self, params):
 		self.params = params
 
@@ -173,21 +251,24 @@ class ArcBase(Object):
 		self.points = []
 
 	def __str__(self):
+		hasForwardArrow = (self.forwardArrow != None and 1 or 0)
+		hasBackwardArrow = (self.backwardArrow != None and 1 or 0)
+		
 		result = _join(self.type, self.subType,
 					   self.lineStyle, self.lineWidth,
 					   self.penColor, self.fillColor,
 					   self.depth, self.penStyle,
-					   self.fillStyle, self.styleValue,
+					   self.fillStyle, self.lineStyle > 0 and self.styleValue or 0.0,
 					   self.capStyle, self.direction,
-					   self.hasForwardArrow, self.hasBackwardArrow,
+					   hasForwardArrow, hasBackwardArrow,
 					   self.centerX, self.centerY,
 					   self.points[0][0], self.points[0][1],
 					   self.points[1][0], self.points[1][1],
 					   self.points[2][0], self.points[2][1]) + "\n"
 
-		if self.hasForwardArrow:
+		if hasForwardArrow:
 			result += "\t" + str(self.forwardArrow)
-		if self.hasBackwardArrow:
+		if hasBackwardArrow:
 			result += "\t" + str(self.backwardArrow)
 		return result
 
@@ -197,19 +278,19 @@ class ArcBase(Object):
 			result(point)
 		return result
 
-	def readSub(self, params):
-		if self.hasForwardArrow and self.forwardArrow == None:
+	def _readSub(self, params):
+		if self.forwardArrow == True:
 			self.forwardArrow = Arrow(params)
-			return self.hasBackwardArrow
+			return self.backwardArrow == True
 
-		if self.hasBackwardArrow and self.backwardArrow == None:
+		if self.backwardArrow == True:
 			self.backwardArrow = Arrow(params)
-			return 0
+			return False
 
 		sys.stderr.write("Unhandled subline while loading arc object!\n")
-		return 0
+		return False
 
-def readArcBase(params):
+def _readArcBase(params):
 	result = ArcBase()
 	result.subType = int(params[0])
 	result.lineStyle = int(params[1])
@@ -222,19 +303,18 @@ def readArcBase(params):
 	result.styleValue = float(params[8])
 	result.capStyle = int(params[9])
 	result.direction = int(params[10])
-	result.hasForwardArrow = int(params[11])
-	result.hasBackwardArrow = int(params[12])
+	subLines = 0
+	if int(params[11]):
+		result.forwardArrow = True
+		subLines += 1
+	if int(params[12]):
+		result.backwardArrow = True
+		subLines += 1
 	result.centerX = float(params[13])
 	result.centerY = float(params[14])
 	result.points = [(int(params[15]), int(params[16])),
 					 (int(params[17]), int(params[18])),
 					 (int(params[19]), int(params[20]))]
-	# pointCount = int(params[14])
-	subLines = 0
-	if result.hasForwardArrow:
-		subLines += 1
-	if result.hasBackwardArrow:
-		subLines += 1
 	return result, subLines
 
 class EllipseBase(Object):
@@ -267,7 +347,15 @@ class EllipseBase(Object):
 				(self.center[1] + self.radius[1])))
 		return result
 
-def readEllipseBase(params):
+	def setCenterRadius(self, center, radius):
+		self.center = center
+		self.radius = radius
+		self.start = self.center
+		self.end = (self.center[0] + radius[0],
+					self.center[1] + radius[1])
+
+
+def _readEllipseBase(params):
 	result = EllipseBase()
 	result.subType = int(params[0])
 	result.lineStyle = int(params[1])
@@ -285,6 +373,26 @@ def readEllipseBase(params):
 	result.end = ((int(params[17]), int(params[18])))
 	return result, 0
 
+class Ellipse(EllipseBase):
+	def __init__(self, center = None, radii = None,
+				 start = None, end = None):
+		EllipseBase.__init__(self)
+		if center != None and radii != None:
+			self.subType = etEllipseRadii
+			self.setCenterRadius(center, radii)
+		else:
+			raise ValueError("Given Ellipse construction parameter combination not handled!")
+
+class Circle(EllipseBase):
+	def __init__(self, center = None, radius = None,
+				 start = None, end = None):
+		EllipseBase.__init__(self)
+		if center != None and radius != None:
+			self.subType = etCircleRadius
+			self.setCenterRadius(center, (radius, radius))
+		else:
+			raise ValueError("Given Ellipse construction parameter combination not handled!")
+
 class PolylineBase(Object):
 	def __init__(self):
 		Object.__init__(self, figPolygon)
@@ -297,28 +405,39 @@ class PolylineBase(Object):
 		pointCount = len(self.points)
 		if self.closed:
 			pointCount += 1
-		result = _join(self.type, self.subType,
+		subType = self.subType
+		if subType == ptPolygon and not self.closed:
+			subType = ptPolyline
+		hasForwardArrow = (self.forwardArrow != None and 1 or 0)
+		hasBackwardArrow = (self.backwardArrow != None and 1 or 0)
+		
+		result = _join(self.type, subType,
 					   self.lineStyle, self.lineWidth,
 					   self.penColor, self.fillColor,
 					   self.depth, self.penStyle,
 					   self.fillStyle, self.styleValue,
 					   self.joinStyle, self.capStyle, self.radius,
-					   self.hasForwardArrow, self.hasBackwardArrow,
+					   hasForwardArrow, hasBackwardArrow,
 					   pointCount) + "\n"
 
-		if self.hasForwardArrow:
+		if hasForwardArrow:
 			result += "\t" + str(self.forwardArrow)
-		if self.hasBackwardArrow:
+		if hasBackwardArrow:
 			result += "\t" + str(self.backwardArrow)
 		if self.subType == ptPictureBBox:
 			result += "\t" + _join(self.flipped, self.pictureFilename) + "\n"
-		# TODO: write only six points per line
-		result += "\t" + _join(self.points[0][0], self.points[0][1])
-		for point in self.points[1:]:
-			result += _join("", point[0], point[1])
+		i = self._savePointIter()
+		for linePoints in map(None, *(i, )*12):
+			result += "\t" + _join(*[p for p in linePoints if p != None]) + "\n"
+		return result
+
+	def _savePointIter(self):
+		for p in self.points:
+			yield p[0]
+			yield p[1]
 		if self.closed:
-			result += _join("", self.points[0][0], self.points[0][1])
-		return result + "\n"
+			yield self.points[0][0]
+			yield self.points[0][1]
 
 	def bounds(self):
 		result = _Rect()
@@ -326,19 +445,19 @@ class PolylineBase(Object):
 			result(point)
 		return result
 
-	def readSub(self, params):
-		if self.hasForwardArrow and self.forwardArrow == None:
+	def _readSub(self, params):
+		if self.forwardArrow == True:
 			self.forwardArrow = Arrow(params)
-			return 1
+			return True
 
-		if self.hasBackwardArrow and self.backwardArrow == None:
+		if self.backwardArrow == True:
 			self.backwardArrow = Arrow(params)
-			return 1
+			return True
 
 		if self.subType == ptPictureBBox and self.pictureFilename == None:
 			self.flipped = int(params[0])
 			self.pictureFilename = params[1]
-			return 1
+			return True
 
 		pointCount = len(params) / 2
 		for pointIndex in range(pointCount):
@@ -350,7 +469,7 @@ class PolylineBase(Object):
 			del self.points[self._pointCount:]
 		return len(self.points) < self._pointCount
 
-def readPolylineBase(params):
+def _readPolylineBase(params):
 	result = PolylineBase()
 	result.subType = int(params[0])
 	result.closed = 0
@@ -379,16 +498,17 @@ def readPolylineBase(params):
 	result.joinStyle = int(params[9])
 	result.capStyle = int(params[10])
 	result.radius = int(params[11])
-	result.hasForwardArrow = int(params[12])
-	result.hasBackwardArrow = int(params[13])
+	subLines = 0
+	if int(params[12]):
+		result.forwardArrow = True
+		subLines += 1
+	if int(params[13]):
+		result.backwardArrow = True
+		subLines += 1
 	result._pointCount = int(params[14])
-	subLines = (result._pointCount+5)/6 # for the points
+	subLines += (result._pointCount+5)/6 # sublines to read for the points
 	if result.closed:
 		result._pointCount -= 1
-	if result.hasForwardArrow:
-		subLines += 1
-	if result.hasBackwardArrow:
-		subLines += 1
 	if result.subType == ptPictureBBox:
 		subLines += 1
 	return result, subLines
@@ -406,6 +526,12 @@ class PolyBox(PolylineBase):
 	def center(self):
 		return ((self.points[0][0] + self.points[2][0])/2,
 				(self.points[0][1] + self.points[2][1])/2)
+
+	def width(self):
+		return abs(self.points[2][0] - self.points[0][0])
+
+	def height(self):
+		return abs(self.points[2][1] - self.points[0][1])
 
 class Polygon(PolylineBase):
 	def __init__(self, points, closed):
@@ -443,17 +569,21 @@ class SplineBase(Object):
 		pointCount = len(self.points)
 		if self.closed:
 			pointCount += 1
+
+		hasForwardArrow = (self.forwardArrow != None and 1 or 0)
+		hasBackwardArrow = (self.backwardArrow != None and 1 or 0)
+
 		result = _join(self.type, self.subType,
 					   self.lineStyle, self.lineWidth,
 					   self.penColor, self.fillColor,
 					   self.depth, self.penStyle,
 					   self.fillStyle, self.styleValue, self.capStyle,
-					   self.hasForwardArrow, self.hasBackwardArrow,
+					   hasForwardArrow, hasBackwardArrow,
 					   pointCount) + "\n"
 
-		if self.hasForwardArrow:
+		if hasForwardArrow:
 			result += "\t" + str(self.forwardArrow)
-		if self.hasBackwardArrow:
+		if hasBackwardArrow:
 			result += "\t" + str(self.backwardArrow)
 		result += "\t" + _join(self.points[0][0], self.points[0][1])
 		for point in self.points[1:]:
@@ -468,14 +598,14 @@ class SplineBase(Object):
 			result(point)
 		return result
 
-	def readSub(self, params):
-		if self.hasForwardArrow and self.forwardArrow == None:
+	def _readSub(self, params):
+		if self.forwardArrow == True:
 			self.forwardArrow = Arrow(params)
-			return 1
+			return True
 
-		if self.hasBackwardArrow and self.backwardArrow == None:
+		if self.backwardArrow == True:
 			self.backwardArrow = Arrow(params)
-			return 1
+			return True
 
 		if len(self.points) < self._pointCount:
 			pointCount = len(params) / 2
@@ -484,12 +614,12 @@ class SplineBase(Object):
 									int(params[pointIndex * 2 + 1])))
 			if len(self.points) > self._pointCount:
 				del self.points[self._pointCount:]
-			return 1
+			return True
 
 		# FIXME more than one line, too?
 		self.shapefactors = params
 
-def readSplineBase(params):
+def _readSplineBase(params):
 	result = SplineBase()
 	result.subType = int(params[0])
 #	if result.subType == st:
@@ -503,13 +633,12 @@ def readSplineBase(params):
 	result.fillStyle = int(params[7])
 	result.styleValue = float(params[8])
 	result.capStyle = int(params[9])
-	result.hasForwardArrow = int(params[10])
-	result.hasBackwardArrow = int(params[11])
-	# pointCount = int(params[12])
 	subLines = 2 # for the points and shape factors
-	if result.hasForwardArrow:
+	if int(params[10]):
+		result.forwardArrow = True
 		subLines += 1
-	if result.hasBackwardArrow:
+	if int(params[11]):
+		result.backwardArrow = True
 		subLines += 1
 	return result, subLines
 
@@ -549,7 +678,7 @@ class Text(Object):
 
 		return result
 
-def readText(params):
+def _readText(params):
 	result = Text(int(params[10]), int(params[11]),
 				  params[12][:-4], int(params[0]))
 	result.penColor = int(params[1])
@@ -563,17 +692,20 @@ def readText(params):
 	result.length = float(params[9])
 	return result, 0
 
-class Compound:
+class Compound(object):
 	def __init__(self, parent = None):
 		self.type = figCompoundBegin
 		self.objects = []
-		self.bounds = _Rect()
+		self._bounds = _Rect()
 		if parent != None:
 			parent.append(self)
 
+	def bounds(self):
+		return self._bounds
+
 	def append(self, object):
 		self.objects.append(object)
-		#self.bounds(object.bounds())
+		self._bounds(object.bounds())
 
 	def __str__(self):
 		if len(self.objects) < 1:
@@ -582,22 +714,23 @@ class Compound:
 		for o in self.objects:
 			result += str(o)
 		return _join(figCompoundBegin,
-					 int(self.bounds.x1), int(self.bounds.y1),
-					 int(self.bounds.x2), int(self.bounds.y2)) + "\n" + \
+					 int(self._bounds.x1), int(self._bounds.y1),
+					 int(self._bounds.x2), int(self._bounds.y2)) + "\n" + \
 			   result + str(figCompoundEnd) + "\n"
 
-def readCompound(params):
+def _readCompound(params):
 	result = Compound()
-	result.bounds.x1 = int(params[0])
-	result.bounds.y1 = int(params[1])
-	result.bounds.x2 = int(params[2])
-	result.bounds.y2 = int(params[3])
+	result._bounds.x1 = int(params[0])
+	result._bounds.y1 = int(params[1])
+	result._bounds.x2 = int(params[2])
+	result._bounds.y2 = int(params[3])
 	return result
 
-class _AllObjectIter:
-	def __init__(self, file):
+class _AllObjectIter(object):
+	def __init__(self, file, skipCompounds = True):
 		self.file = file
 		self.iters = [iter(file.objects)]
+		self.skipCompounds = skipCompounds
 
 	def __iter__(self):
 		return self
@@ -609,13 +742,15 @@ class _AllObjectIter:
 			next = self.iters[-1].next()
 			if next.type == figCompoundBegin:
 				self.iters.append(iter(next.objects))
+				if not self.skipCompounds:
+					return next
 			else:
 				return next
 		except StopIteration:
 			del self.iters[-1]
 		return self.next()
 
-class File:
+class File(object):
 	def __init__(self, inputFile = None):
 		self.objects = []
 		self.colors = []
@@ -665,7 +800,7 @@ class File:
 				  try:
 					params = re.split(" +", line)
 					if subLineExpected:
-						subLineExpected = currentObject.readSub(params)
+						subLineExpected = currentObject._readSub(params)
 					else:
 						objectType = int(params[0])
 						subLineExpected = 0
@@ -673,17 +808,17 @@ class File:
 							self.colors.append(
 								CustomColor(int(params[1]), params[2]))
 						elif objectType == figPolygon:
-							currentObject, subLineExpected = readPolylineBase(params[1:])
+							currentObject, subLineExpected = _readPolylineBase(params[1:])
 						elif objectType == figArc:
-							currentObject, subLineExpected = readArcBase(params[1:])
+							currentObject, subLineExpected = _readArcBase(params[1:])
 						elif objectType == figSpline:
-							currentObject, subLineExpected = readSplineBase(params[1:])
+							currentObject, subLineExpected = _readSplineBase(params[1:])
 						elif objectType == figText:
-							currentObject, subLineExpected = readText(params[1:])
+							currentObject, subLineExpected = _readText(params[1:])
 						elif objectType == figEllipse:
-							currentObject, subLineExpected = readEllipseBase(params[1:])
+							currentObject, subLineExpected = _readEllipseBase(params[1:])
 						elif objectType == figCompoundBegin:
-							stack.append(readCompound(params[1:]))
+							stack.append(_readCompound(params[1:]))
 						elif objectType == figCompoundEnd:
 							currentObject = stack.pop()
 						else:
@@ -702,14 +837,23 @@ class File:
 					  raise
 				lineIndex += 1
 
-	def allObjects(self):
-		return _AllObjectIter(self)
+	def allObjects(self, includeCompounds = False):
+		"""Returns an iterator iterating over all objects in this
+		document, recursively entering compound objects.  You can use
+		the optional parameter includeCompounds (default: False) to
+		get the compound objects themselves returned, too."""
+		return _AllObjectIter(self, not includeCompounds)
 
 	def append(self, object):
-		if object.__class__ == CustomColor:
+		"""Adds the object to this document, i.e. appends an object to
+		self.objects (or self.colors if it's a CustomColor)."""
+		if type(object) == CustomColor:
 			self.colors.append(object)
 		else:
 			self.objects.append(object)
+
+	def remove(self, object):
+		self.objects.remove(object)
 
 	def addColor(self, hexCode):
 		result = CustomColor(colorCustom0 + len(self.colors), hexCode)
@@ -717,24 +861,59 @@ class File:
 		self.colorhash[hexCode] = result
 		return result
 
-	def getColor(self, color):
-		if type(color) == types.FloatType: # accept grayvalues as float
-			color = int(color)
-		if type(color) == types.IntType: # accept grayvalues as int
+	def getColor(self, color, similarity = None):
+		"""Returns a color object for the given color, adding a new
+		custom color to this document if it does not yet exist.  The
+		color can be given as tuple of 0..255 values for R,G,B or as
+		hex string (e.g. (0, 255, 0) or '#00ff00' for green)."""
+		
+		if type(color) == float: # accept grayvalues as float (0..1)
+			color = int(round((color*255)))
+		if type(color) == int: # accept grayvalues as int (0..255)
 			color = (color, color, color)
-		if type(color) == types.TupleType: # accept colors as 3-tuple
+		if type(color) == types.TupleType: # accept colors as 3-tuple of (0..255)
+			if type(color[0]) == float:
+				color = (int(round((color[0]*255))),
+						 int(round((color[1]*255))),
+						 int(round((color[2]*255))))
 			color = "#%02x%02x%02x" % color
 		if type(color) != types.StringType: # accept RGB color objects
 			color = "#%02x%02x%02x" % tuple(color)
+		assert len(color) == 7, "too large values given for red, green, or blue"
 		try:
 			return self.colorhash[color]
 		except KeyError:
+			if similarity != None:
+				if similarity > 0.0:
+					t = CustomColor(None, color)
+					for hex in self.colorhash:
+						o = self.colorhash[hex]
+						def sq(x): return x*x
+						if math.sqrt(sq(o[0]-t[0]) +
+									 sq(o[1]-t[1]) +
+									 sq(o[2]-t[2])) < similarity:
+							return o
+				else:
+					raise # if similarity == 0.0 or < 0, don't add color
 			return self.addColor(color)
 
-	def gray(self, grayLevel):
-		return getColor((grayLevel, grayLevel, grayLevel))
+	def colorRGB(self, color):
+		"""Returns a the R,G,B tuple for the given color index."""
+		if color < 0:
+			return None
+		elif color < colorCustom0:
+			return standardColors[color]
+		else:
+			return self.colors[color].rgb()
 
-	def __str__(self):
+	def gray(self, grayLevel):
+		"""Returns a color representing the given graylevel (see getColor).
+		grayLevel can be a float in the range 0.0 - 1.0 or a 0 - 255 integer."""
+		return self.getColor((grayLevel, grayLevel, grayLevel))
+
+	def headerStr(self):
+		"""Returns the first lines of the XFig file output, which contain
+		global document information like orientation / units / ..."""
 		result = "#FIG 3.2\n"
 		if self.landscape:
 			result += "Landscape\n"
@@ -756,9 +935,30 @@ class File:
 			result += "Multiple\n"
 		result += str(self.transparentColor) + "\n"
 		result += str(self.ppi) + " 2\n" # (2: only used coordinate system)
-		for color in self.colors:
-			result += repr(color)
+		return result
+
+	def objectsStr(self):
+		"""Returns the part of the XFig file containing all objects
+		(but not the custom colors).  This is the same as str(object)
+		concatenated for each object in (figfile).objects."""
+		result = ""
 		for object in self.objects:
 			result += str(object)
-
 		return result
+
+	def __str__(self):
+		"""Returns the contents of this file in the XFig file format as string.
+		See save()."""
+		result = self.headerStr()
+		for color in self.colors:
+			result += repr(color)
+		result += self.objectsStr()
+		return result
+
+	def save(self, filename):
+		"""Saves the contents of this file in the XFig file format to
+		the file 'filename'.  figfile.save(filename) is equivalent to:
+		
+		  file(filename, "w").write(str(figfile))"""
+		
+		file(filename, "w").write(str(self))
