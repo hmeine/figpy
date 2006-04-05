@@ -1,10 +1,12 @@
 """'fig' module - object-oriented interface to XFig files.
 
 You can read fig files into an object 'f' with
-  f = fig.File(filename) # or pass a file-like object
-New files can be created"""
+  f = fig.File(filename) # or pass a file-like object"""
 
-import sys, string, re, math
+_cvsVersion = "$Id$" \
+              .split(" ")[2:-2]
+
+import sys, string, re, math, types, os
 
 # object codes
 figCustomColor   = 0
@@ -962,3 +964,26 @@ class File(object):
 		  file(filename, "w").write(str(figfile))"""
 		
 		file(filename, "w").write(str(self))
+
+	def save(self, filename):
+		"""Saves the contents of this file in the XFig file format to
+		the file 'filename'.  figfile.save(filename) is equivalent to:
+		
+		  file(filename, "w").write(str(figfile))"""
+		
+		file(filename, "w").write(str(self))
+
+	def saveEPS(self, basename):
+		"""Saves the contents of this file to [basename].fig and calls
+		fig2dev to create a [basename].eps, too.  The basename
+		(without either .fig or .eps!) is returned, so that you can
+		use expressions like:
+
+		  resultBasename = figFile.saveEPS(namePrefix + "_%d" % index)"""
+
+		self.save(basename + ".fig")
+		cin, cout = os.popen4("fig2dev -Leps %s.fig %s.eps" % ((basename, )*2))
+		cin.close(); print cout.read()
+		del cin, cout
+
+		return basename
