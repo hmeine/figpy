@@ -182,34 +182,43 @@ def _join(*sequence):
 			parts.append(str(item))
 	return string.join(parts, " ")
 
-re_size = re.compile("([0-9]+)x([0-9]+)")
-re_geometry = re.compile("([0-9]+)[:,]([0-9]+)([+-:,])([0-9]+)([x:,])([0-9]+)")
+_re_size = re.compile("([0-9]+)x([0-9]+)")
+_re_geometry = re.compile("([0-9]+)[:,]([0-9]+)([+-:,])([0-9]+)([x:,])([0-9]+)")
 
 def parseSize(sizeStr):
-	ma = re_size.match(sizeStr)
+	"""Convenience function for parsing size strings into tuples:
+	>>> fig.parseSize('640x480')
+	(640, 480)"""
+	ma = _re_size.match(sizeStr)
 	if ma:
 		w = int(ma.group(1))
 		h = int(ma.group(2))
 		return (w, h)
 
 def parseGeometry(geometryString):
-	ma = re_geometry.match(geometryString)
+	ma = _re_geometry.match(geometryString)
 	if ma:
 		x1 = int(ma.group(1))
 		y1 = int(ma.group(2))
 		vx2 = int(ma.group(4))
 		vy2 = int(ma.group(6))
 		if ma.group(3) == "+" or ma.group(5) == "x":
-			return ((x1, y1), (x1+vx2, y1+vy2))
+			return _Rect(x1, y1, x1+vx2, y1+vy2)
 		else:
-			return ((x1, y1), (vx2, vy2))
+			return _Rect(x1, y1, vx2, vy2)
 
-class _Rect(object):
-	def __init__(self):
-		self.empty = 1
-
+class Rect(object):
+	def __init__(self, *args):
+		assert len(args) in (0, 4), \
+			   "Rect.__init__() expecting zero or four parameters!"
+		if len(args) == 4:
+			self.x1, self.y1, self.x2, self.y2 = args
+			self.empty = False
+		else:
+			self.empty = True
+	
 	def __call__(self, other):
-		if type(other) == _Rect:
+		if type(other) == Rect:
 			self.__call__((other.x1, other.y1))
 			self.__call__((other.x2, other.y2))
 		else:
@@ -224,15 +233,23 @@ class _Rect(object):
 				self.y1 = min(self.y1, other[1])
 				self.x2 = max(self.x2, other[0])
 				self.y2 = max(self.y2, other[1])
-
+	
 	def width(self):
 		return self.x2 - self.x1
-
+	
 	def height(self):
 		return self.y2 - self.y1
-
-	def __str__(self):
-		return "%d,%d,%d,%d" % (self.x1, self.y1, self.x2, self.y2)
+	
+	def __repr__(self):
+		return "fig.Rect(%d,%d,%d,%d)" % (self.x1, self.y1, self.x2, self.y2)
+	
+	def __iter__(self):
+		"""Make Rect objects assignable like:
+		x1, y1, x2, y2 = someRect"""
+		yield self.x1
+		yield self.y1
+		yield self.x2
+		yield self.y2
 
 class CustomColor(object):
 	def __init__(self, index, hexCode):
@@ -274,9 +291,7 @@ class Object(object):
 	- depth (0-999)
 	- joinStyle and capStyle
 	- forwardArrow/backwardArrow (the latter are Arrow objects)"""
-	def __init__(self, type):
-		self.type = type
-		self.subType = None
+	def __init__(self):
 		self.lineStyle = lineStyleDefault
 		self.lineWidth = 1
 		self.penColor = colorDefault
@@ -300,14 +315,20 @@ class Arrow(object):
 
 class ArcBase(Object):
 	def __init__(self):
-		Object.__init__(self, figArc)
+		Object.__init__(self)
 		self.points = []
+
+	def changeType(self, arcType):
+		if arcType == atPie:
+			self.__class = PieArc
+		else:
+			self.__class = OpenArc
 
 	def __str__(self):
 		hasForwardArrow = (self.forwardArrow != None and 1 or 0)
 		hasBackwardArrow = (self.backwardArrow != None and 1 or 0)
 		
-		result = _join(self.type, self.subType,
+		result = _join(figArc, self.arcType(),
 					   self.lineStyle, self.lineWidth,
 					   self.penColor, self.fillColor,
 					   self.depth, self.penStyle,
@@ -326,7 +347,7 @@ class ArcBase(Object):
 		return result
 
 	def bounds(self):
-		result = _Rect()
+		result = Rect()
 		for point in self.points:
 			result(point)
 		return result
@@ -343,9 +364,17 @@ class ArcBase(Object):
 		sys.stderr.write("Unhandled subline while loading arc object!\n")
 		return False
 
+class PieArc(ArcBase):
+	def arcType(self):
+		return atPie
+
+class OpenArc(ArcBase):
+	def arcType(self):
+		return atOpen
+
 def _readArcBase(params):
 	result = ArcBase()
-	result.subType = int(params[0])
+	result.changeType(int(params[0]))
 	result.lineStyle = int(params[1])
 	result.lineWidth = int(params[2])
 	result.penColor = int(params[3])
@@ -372,15 +401,23 @@ def _readArcBase(params):
 
 class EllipseBase(Object):
 	def __init__(self):
-		Object.__init__(self, figEllipse)
+		Object.__init__(self)
 		self.angle = 0.0
 		self.center = (0, 0)
 		self.radius = (0, 0)
 		self.start = (0, 0)
 		self.end = (0, 0)
 
+	def changeType(self, ellipseType):
+		if ellipseType in (etEllipseRadii, etEllipseDiameter):
+			self.__class__ = Ellipse
+		elif ellipseType in (etCircleRadius, etCircleDiameter):
+			self.__class__ = Circle
+		else:
+			raise ValueError("Unknown ellipseType %d!" % ellipseType)
+
 	def __str__(self):
-		return _join(self.type, self.subType,
+		return _join(figEllipse, self.ellipseType(),
 					 self.lineStyle, self.lineWidth,
 					 self.penColor, self.fillColor,
 					 self.depth, self.penStyle,
@@ -393,7 +430,7 @@ class EllipseBase(Object):
 					 self.end[0], self.end[1]) + "\n"
 
 	def bounds(self):
-		result = _Rect()
+		result = Rect()
 		result(((self.center[0] - self.radius[0]),
 				(self.center[1] - self.radius[1])))
 		result(((self.center[0] + self.radius[0]),
@@ -407,10 +444,9 @@ class EllipseBase(Object):
 		self.end = (self.center[0] + radius[0],
 					self.center[1] + radius[1])
 
-
 def _readEllipseBase(params):
 	result = EllipseBase()
-	result.subType = int(params[0])
+	result.changeType(int(params[0]))
 	result.lineStyle = int(params[1])
 	result.lineWidth = int(params[2])
 	result.penColor = int(params[3])
@@ -431,26 +467,57 @@ class Ellipse(EllipseBase):
 				 start = None, end = None):
 		EllipseBase.__init__(self)
 		if center != None and radii != None:
-			self.subType = etEllipseRadii
 			self.setCenterRadius(center, radii)
 		else:
-			raise ValueError("Given Ellipse construction parameter combination not handled!")
+			self.setStartEnd(start, end)
+
+	def ellipseType(self):
+		if self.center == self.start:
+			return etEllipseRadii
+		else:
+			return etEllipseDiameter
+
+	def setStartEnd(self, start, end):
+		self.start = start
+		self.end = end
+		self.center = ((start[0] + end[0])/2,
+					   (start[1] + end[1])/2)
+		self.radius = ((end[0] - self.center[0]),
+					   (end[1] - self.center[1]))
 
 class Circle(EllipseBase):
 	def __init__(self, center = None, radius = None,
 				 start = None, end = None):
 		EllipseBase.__init__(self)
 		if center != None and radius != None:
-			self.subType = etCircleRadius
 			self.setCenterRadius(center, (radius, radius))
 		else:
-			raise ValueError("Given Ellipse construction parameter combination not handled!")
+			self.setStartEnd(start, end)
+
+	def ellipseType(self):
+		if self.center == self.start:
+			return etCircleRadius
+		else:
+			return etCircleDiameter
+
+	def setStartEnd(self, start, end):
+		self.start = start
+		self.end = end
+		self.center = ((start[0] + end[0])/2,
+					   (start[1] + end[1])/2)
+		radius = int(round(math.hypot(end[0] - self.center[0],
+									  end[1] - self.center[1])))
+		self.radius = (radius, radius)
+
+	def __str__(self):
+		assert self.radius[0] == self.radius[1], \
+			   "invalid circle (radii %d != %d)" % self.radius
+		return EllipseBase.__str__(self)
 
 class PolylineBase(Object):
 	def __init__(self):
-		Object.__init__(self, figPolygon)
+		Object.__init__(self)
 		self.points = []
-		self.closed = True
 		self.pictureFilename = None
 		self.flipped = False
 
@@ -464,7 +531,7 @@ class PolylineBase(Object):
 		hasForwardArrow = (self.forwardArrow != None and 1 or 0)
 		hasBackwardArrow = (self.backwardArrow != None and 1 or 0)
 		
-		result = _join(self.type, subType,
+		result = _join(figPolygon, self.polygonType(),
 					   self.lineStyle, self.lineWidth,
 					   self.penColor, self.fillColor,
 					   self.depth, self.penStyle,
@@ -493,7 +560,7 @@ class PolylineBase(Object):
 			yield self.points[0][1]
 
 	def bounds(self):
-		result = _Rect()
+		result = Rect()
 		for point in self.points:
 			result(point)
 		return result
@@ -618,7 +685,7 @@ class PictureBBox(PolylineBase):
 
 class SplineBase(Object):
 	def __init__(self):
-		Object.__init__(self, figSpline)
+		Object.__init__(self)
 		self.points = []
 		self.shapeFactors = []
 		self.closed = True
@@ -631,7 +698,7 @@ class SplineBase(Object):
 		hasForwardArrow = (self.forwardArrow != None and 1 or 0)
 		hasBackwardArrow = (self.backwardArrow != None and 1 or 0)
 
-		result = _join(self.type, self.subType,
+		result = _join(figSpline, self.subType,
 					   self.lineStyle, self.lineWidth,
 					   self.penColor, self.fillColor,
 					   self.depth, self.penStyle,
@@ -653,7 +720,7 @@ class SplineBase(Object):
 		return result
 
 	def bounds(self):
-		result = _Rect()
+		result = Rect()
 		for point in self.points:
 			result(point)
 		return result
@@ -741,7 +808,7 @@ def _readSplineBase(params):
 
 class Text(Object):
 	def __init__(self, x, y, text, alignment = alignLeft):
-		Object.__init__(self, figText)
+		Object.__init__(self)
 		self.text = text
 		self.font = fontDefault
 		self.fontSize = 12.0
@@ -754,7 +821,7 @@ class Text(Object):
 		self.subType = alignment
 
 	def bounds(self):
-		result = _Rect()
+		result = Rect()
 		if self.subType == alignLeft:
 			result((self.x,               self.y - self.height))
 			result((self.x + self.length, self.y))
@@ -767,7 +834,7 @@ class Text(Object):
 		return result
 
 	def __str__(self):
-		result = _join(self.type, self.subType,
+		result = _join(figText, self.subType,
 					   self.penColor, self.depth, self.penStyle,
 					   self.font, self.fontSize, self.fontAngle, self.fontFlags,
 					   self.height, self.length, self.x, self.y,
@@ -791,9 +858,8 @@ def _readText(params):
 
 class Compound(object):
 	def __init__(self, parent = None):
-		self.type = figCompoundBegin
 		self.objects = []
-		self._bounds = _Rect()
+		self._bounds = Rect()
 		if parent != None:
 			parent.append(self)
 
@@ -837,7 +903,7 @@ class _AllObjectIter(object):
 			raise StopIteration
 		try:
 			next = self.iters[-1].next()
-			if next.type == figCompoundBegin:
+			if type(next) == Compound:
 				self.iters.append(iter(next.objects))
 				if not self.skipCompounds:
 					return next
