@@ -855,12 +855,12 @@ class File(object):
 		self.filename = None
 
 		if inputFile == None:
-			self.landscape = 1
-			self.centered = 1
-			self.metric = 1
+			self.landscape = True
+			self.centered = True
+			self.metric = True
 			self.paperSize = "A4"
 			self.magnification = 100.0
-			self.singlePage = 1
+			self.singlePage = True
 			self.transparentColor = -2 # no transparency, -1 = background, else color#
 			self.ppi = 1200 # figure units per inch
 		else:
@@ -928,7 +928,7 @@ class File(object):
 							raise ValueError(
 								"Unhandled object type %s!" % (objectType, ))
 					if currentObject != None and not subLineExpected:
-						if len(stack) > 0:
+						if stack:
 							stack[-1].append(currentObject)
 						else:
 							self.objects.append(currentObject)
