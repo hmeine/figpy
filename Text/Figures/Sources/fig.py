@@ -6,7 +6,7 @@ You can read fig files into an object 'f' with
 _cvsVersion = "$Id$" \
               .split(" ")[2:-2]
 
-import sys, string, re, math, types, os
+import sys, re, math, types, os
 
 # object codes
 figCustomColor   = 0
@@ -32,6 +32,7 @@ etCircleRadius    = 3
 etCircleDiameter  = 4
 
 # spline types
+stOpenApproximated   = 0
 stClosedApproximated = 1
 stOpenInterpolated   = 2
 stClosedInterpolated = 3
@@ -171,6 +172,10 @@ paperSizes = ["Letter", "Legal", "Ledger", "Tabloid",
 			  "A", "B", "C", "D", "E",
 			  "A4", "A3", "A2", "A1", "A0", "B5"]
 
+# --------------------------------------------------------------------
+# 							   helpers
+# --------------------------------------------------------------------
+
 def _join(*sequence):
 	parts = []
 	for item in sequence:
@@ -180,7 +185,7 @@ def _join(*sequence):
 			parts.append(str(int(item)))
 		else:
 			parts.append(str(item))
-	return string.join(parts, " ")
+	return " ".join(parts)
 
 _re_size = re.compile("([0-9]+)x([0-9]+)")
 _re_geometry = re.compile("([0-9]+)[:,]([0-9]+)([+-:,])([0-9]+)([x:,])([0-9]+)")
@@ -251,6 +256,10 @@ class Rect(object):
 		yield self.x2
 		yield self.y2
 
+# --------------------------------------------------------------------
+# 							 DOM objects
+# --------------------------------------------------------------------
+
 class CustomColor(object):
 	def __init__(self, index, hexCode):
 		self.index = index
@@ -313,6 +322,10 @@ class Arrow(object):
 	def __str__(self):
 		return _join(*self.params) + "\n"
 
+# --------------------------------------------------------------------
+# 								 arcs
+# --------------------------------------------------------------------
+
 class ArcBase(Object):
 	def __init__(self):
 		Object.__init__(self)
@@ -320,9 +333,9 @@ class ArcBase(Object):
 
 	def changeType(self, arcType):
 		if arcType == atPie:
-			self.__class = PieArc
+			self.__class__ = PieArc
 		else:
-			self.__class = OpenArc
+			self.__class__ = OpenArc
 
 	def __str__(self):
 		hasForwardArrow = (self.forwardArrow != None and 1 or 0)
@@ -398,6 +411,10 @@ def _readArcBase(params):
 					 (int(params[17]), int(params[18])),
 					 (int(params[19]), int(params[20]))]
 	return result, subLines
+
+# --------------------------------------------------------------------
+# 							   ellipses
+# --------------------------------------------------------------------
 
 class EllipseBase(Object):
 	def __init__(self):
@@ -514,6 +531,10 @@ class Circle(EllipseBase):
 			   "invalid circle (radii %d != %d)" % self.radius
 		return EllipseBase.__str__(self)
 
+# --------------------------------------------------------------------
+# 							  polylines
+# --------------------------------------------------------------------
+
 class PolylineBase(Object):
 	def __init__(self):
 		Object.__init__(self)
@@ -521,17 +542,26 @@ class PolylineBase(Object):
 		self.pictureFilename = None
 		self.flipped = False
 
+	def changeType(self, polylineType):
+		if polylineType == ptPolyline:
+			self.__class__ = PolyLine
+		if polylineType == ptBox:
+			self.__class__ = PolyBox
+		if polylineType == ptPolygon:
+			self.__class__ = Polygon
+		if polylineType == ptArcBox:
+			self.__class__ = ArcBox
+		if polylineType == ptPictureBBox:
+			self.__class__ = PictureBBox
+
 	def __str__(self):
 		pointCount = len(self.points)
-		if self.closed:
+		if self.closed():
 			pointCount += 1
-		subType = self.subType
-		if subType == ptPolygon and not self.closed:
-			subType = ptPolyline
 		hasForwardArrow = (self.forwardArrow != None and 1 or 0)
 		hasBackwardArrow = (self.backwardArrow != None and 1 or 0)
 		
-		result = _join(figPolygon, self.polygonType(),
+		result = _join(figPolygon, self.polylineType(),
 					   self.lineStyle, self.lineWidth,
 					   self.penColor, self.fillColor,
 					   self.depth, self.penStyle,
@@ -544,7 +574,7 @@ class PolylineBase(Object):
 			result += "\t" + str(self.forwardArrow)
 		if hasBackwardArrow:
 			result += "\t" + str(self.backwardArrow)
-		if self.subType == ptPictureBBox:
+		if type(self) == PictureBBox:
 			result += "\t" + _join(self.flipped, self.pictureFilename) + "\n"
 		i = self._savePointIter()
 		for linePoints in map(None, *(i, )*12):
@@ -555,7 +585,7 @@ class PolylineBase(Object):
 		for p in self.points:
 			yield p[0]
 			yield p[1]
-		if self.closed:
+		if self.closed():
 			yield self.points[0][0]
 			yield self.points[0][1]
 
@@ -574,7 +604,7 @@ class PolylineBase(Object):
 			self.backwardArrow = Arrow(params)
 			return True
 
-		if self.subType == ptPictureBBox and self.pictureFilename == None:
+		if type(self) == PictureBBox and self.pictureFilename == None:
 			self.flipped = int(params[0])
 			self.pictureFilename = params[1]
 			return True
@@ -584,7 +614,7 @@ class PolylineBase(Object):
 			self.points.append((int(params[pointIndex * 2]),
 								int(params[pointIndex * 2 + 1])))
 
-		expectedPoints = (self._pointCount + (self.closed and 1 or 0))
+		expectedPoints = (self._pointCount + (self.closed() and 1 or 0))
 		moreToCome = len(self.points) < expectedPoints
 		if len(self.points) > self._pointCount:
 			if len(self.points) > expectedPoints:
@@ -595,22 +625,7 @@ class PolylineBase(Object):
 
 def _readPolylineBase(params):
 	result = PolylineBase()
-	result.subType = int(params[0])
-	result.closed = False
-	if result.subType == ptPolyline:
-		result.__class__ = PolyLine
-	if result.subType == ptBox:
-		result.__class__ = PolyBox
-		result.closed = True
-	if result.subType == ptPolygon:
-		result.__class__ = Polygon
-		result.closed = True
-	if result.subType == ptArcBox:
-		#result.__class__ = (not existing yet)
-		pass
-	if result.subType == ptPictureBBox:
-		result.__class__ = PictureBBox
-		result.closed = True
+	result.changeType(int(params[0]))
 	result.lineStyle = int(params[1])
 	result.lineWidth = int(params[2])
 	result.penColor = int(params[3])
@@ -631,21 +646,25 @@ def _readPolylineBase(params):
 		subLines += 1
 	result._pointCount = int(params[14])
 	subLines += (result._pointCount+5)/6 # sublines to read for the points
-	if result.closed:
+	if result.closed():
 		result._pointCount -= 1
-	if result.subType == ptPictureBBox:
+	if type(result) == PictureBBox:
 		subLines += 1
 	return result, subLines
 
 class PolyBox(PolylineBase):
 	def __init__(self, x1, y1, x2, y2):
 		PolylineBase.__init__(self)
-		self.subType = ptBox
 		self.points.append((x1, y1))
 		self.points.append((x2, y1))
 		self.points.append((x2, y2))
 		self.points.append((x1, y2))
-		self.closed = True
+
+	def polylineType(self):
+		return ptBox
+
+	def closed(self):
+		return True
 
 	def center(self):
 		return ((self.points[0][0] + self.points[2][0])/2,
@@ -657,31 +676,48 @@ class PolyBox(PolylineBase):
 	def height(self):
 		return abs(self.points[2][1] - self.points[0][1])
 
+class ArcBox(PolyBox):
+	def polylineType(self):
+		return ptArcBox
+
 class Polygon(PolylineBase):
 	def __init__(self, points, closed):
 		PolylineBase.__init__(self)
-		self.subType = ptPolygon
 		self.points = points
-		self.closed = closed
+
+	def polylineType(self):
+		return ptPolygon
+
+	def closed(self):
+		return True
 
 class PolyLine(PolylineBase):
 	def __init__(self, *points):
 		PolylineBase.__init__(self)
-		self.subType = ptPolyline
 		self.points = points
 		self.closed = False
 
-class PictureBBox(PolylineBase):
+	def polylineType(self):
+		return ptPolyline
+
+	def closed(self):
+		return False
+
+class PictureBBox(PolyBox):
 	def __init__(self, x1, y1, x2, y2, filename, flipped = False):
-		PolylineBase.__init__(self)
-		self.subType = ptPictureBBox
-		self.points.append((x1, y1))
-		self.points.append((x2, y1))
-		self.points.append((x2, y2))
-		self.points.append((x1, y2))
+		PolyBox.__init__(self, x1, y1, x2, y2)
 		self.pictureFilename = filename
 		self.flipped = flipped
-		self.closed = True
+
+	def polylineType(self):
+		return ptPictureBBox
+
+	def closed(self):
+		return True
+
+# --------------------------------------------------------------------
+# 							   splines
+# --------------------------------------------------------------------
 
 class SplineBase(Object):
 	def __init__(self):
@@ -710,14 +746,22 @@ class SplineBase(Object):
 			result += "\t" + str(self.forwardArrow)
 		if hasBackwardArrow:
 			result += "\t" + str(self.backwardArrow)
-		result += "\t" + _join(self.points[0][0], self.points[0][1])
-		for point in self.points[1:]:
-			result += _join("", point[0], point[1])
+		i = self._savePointIter()
+		for linePoints in map(None, *(i, )*12):
+			result += "\t" + _join(*[p for p in linePoints if p != None]) + "\n"
+		sfStrs = [str(sf) for sf in self.shapeFactors]
 		if self.closed:
-			result += _join("", self.points[0][0], self.points[0][1])
-		if self.subType in (stOpenXSpline, stClosedXSpline):
-			result += "\n\t" + _join(*self.shapeFactors) + "\n"
-		return result
+			sfStrs.append(sfStrs[0])
+		result += "\t " + " ".join(sfStrs)
+		return result + "\n"
+
+	def _savePointIter(self):
+		for p in self.points:
+			yield p[0]
+			yield p[1]
+		if self.closed:
+			yield self.points[0][0]
+			yield self.points[0][1]
 
 	def bounds(self):
 		result = Rect()
@@ -773,7 +817,10 @@ class XSpline(SplineBase):
 def _readSplineBase(params):
 	result = SplineBase()
 	result.subType = int(params[0])
-	if result.subType == stClosedApproximated:
+	if result.subType == stOpenApproximated:
+		result.__class__ = ApproximatedSpline
+		result.closed = False
+	elif result.subType == stClosedApproximated:
 		result.__class__ = ApproximatedSpline
 	elif result.subType == stOpenInterpolated:
 		result.__class__ = InterpolatedSpline
@@ -805,6 +852,10 @@ def _readSplineBase(params):
 	if result.closed:
 		result._pointCount -= 1
 	return result, subLines
+
+# --------------------------------------------------------------------
+# 							 text objects
+# --------------------------------------------------------------------
 
 class Text(Object):
 	def __init__(self, x, y, text, alignment = alignLeft):
@@ -855,6 +906,10 @@ def _readText(params):
 	result.height = float(params[8])
 	result.length = float(params[9])
 	return result, 0
+
+# --------------------------------------------------------------------
+# 							  compounds
+# --------------------------------------------------------------------
 
 class Compound(object):
 	def __init__(self, parent = None):
@@ -912,6 +967,10 @@ class _AllObjectIter(object):
 		except StopIteration:
 			del self.iters[-1]
 		return self.next()
+
+# --------------------------------------------------------------------
+# 								 file
+# --------------------------------------------------------------------
 
 class File(object):
 	def __init__(self, inputFile = None):
@@ -1153,3 +1212,29 @@ class File(object):
 		del cin, cout
 
 		return basename
+
+# --------------------------------------------------------------------
+# 							   TESTING:
+# --------------------------------------------------------------------
+
+if __name__ == "__main__":
+	print str(File(sys.argv[1])),
+
+# FIGPY=../Diplomarbeit/Text/Figures/Sources/fig.py
+# SED='sed s,\.0\+,,g'; for i in *.fig; do python $FIGPY $i | $SED > /tmp/foo && $SED $i | diff -ubd - /tmp/foo; done
+
+# ATM, what's changing when loading/saving as above is:
+# - spline shape factors are put into one line (FIXME, see points)
+# - the bounding boxes of splines
+# - the bounding boxes of compounds
+# - some spacing (XFig starts lines with "\t ", I am purposely leaving the " " out)
+# - the display of floating point values (number of trailing zeros)
+
+# TODO:
+# - refactor Splines, too (subType stuff)
+# - pull common code from SplineBase and PolylineBase into common base class
+# - easy access to layers
+# - attribute trick for Compounds (and to-be-done Layer objects?!)
+# - clean up reading code (File could group lines based on whitespace prefixes)
+# - check shape factors of ApproximatedSpline / InterpolatedSpline
+
