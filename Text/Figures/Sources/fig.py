@@ -18,15 +18,6 @@ figArc           = 5
 figCompoundBegin = 6
 figCompoundEnd   = -6
 
-# line styles
-lineStyleDefault          = -1
-lineStyleSolid            = 0
-lineStyleDashed           = 1
-lineStyleDotted           = 2
-lineStyleDashDotted       = 3
-lineStyleDashDoubleDotted = 4
-lineStyleDashTripleDotted = 5
-
 # polygon types
 ptPolyline    = 1
 ptBox         = 2
@@ -40,12 +31,20 @@ etEllipseDiameter = 2
 etCircleRadius    = 3
 etCircleDiameter  = 4
 
+# spline types
+stClosedApproximated = 1
+stOpenInterpolated   = 2
+stClosedInterpolated = 3
+stOpenXSpline        = 4
+stClosedXSpline      = 5
+
 # arc types
 atPie  = 0
 atOpen = 1
 
 # fill styles
 fillStyleNone    = -1
+fillStyleBlack   = 0
 fillStyleSolid   = 20
 fillStyleStripes = 42 # obsolete
 def fillStyleShaded(percent): # 0 = black .. 100 = fillColor (5% steps)
@@ -59,7 +58,17 @@ fillStyleLeft45    = 44 # 45 degree left diagonal pattern
 fillStyleRight45   = 45 # 45 degree right diagonal pattern
 fillStyleCrossed45 = 46 # 45 degree cross-hatched pattern
 
+# line styles
+lineStyleDefault          = -1
+lineStyleSolid            = 0
+lineStyleDashed           = 1
+lineStyleDotted           = 2
+lineStyleDashDotted       = 3
+lineStyleDashDoubleDotted = 4
+lineStyleDashTripleDotted = 5
+
 standardColors = [
+	# pure colors:
 	(0, 0, 0),
 	(0, 0, 255),
 	(0, 255, 0),
@@ -68,46 +77,80 @@ standardColors = [
 	(255, 0, 255),
 	(255, 255, 0),
 	(255, 255, 255),
+	# four blues:
 	(0, 0, 144),
 	(0, 0, 176),
 	(0, 0, 208),
 	(135, 206, 255),
+	# three greens:
 	(0, 144, 0),
 	(0, 176, 0),
 	(0, 208, 0),
+	# three cyans:
 	(0, 144, 144),
 	(0, 176, 176),
 	(0, 208, 208),
+	# three reds:
 	(144, 0, 0),
 	(176, 0, 0),
 	(208, 0, 0),
+	# three magentas:
 	(144, 0, 144),
 	(176, 0, 176),
 	(208, 0, 208),
+	# three browns:
 	(128, 48, 0),
 	(160, 64, 0),
 	(192, 96, 0),
+	# four pinks:
 	(255, 128, 128),
 	(255, 160, 160),
 	(255, 192, 192),
 	(255, 224, 224),
+	# gold:
 	(255, 215, 0),
 	]
 
 # colors
-colorDefault = -1
-colorBlack   = 0
-colorBlue    = 1
-colorGreen   = 2
-colorCyan    = 3
-colorRed     = 4
-colorMagenta = 5
-colorYellow  = 6
-colorWhite   = 7
-colorRed4    = 18
-colorRed3    = 19
-colorRed2    = 20
-colorCustom0 = 32
+colorDefault   = -1
+colorBlack     = 0
+colorBlue      = 1
+colorGreen     = 2
+colorCyan      = 3
+colorRed       = 4
+colorMagenta   = 5
+colorYellow    = 6
+colorWhite     = 7
+colorBlue4     = 8
+colorBlue3     = 9
+colorBlue2     = 10
+colorLightBlue = 11
+colorGreen4    = 12
+colorGreen3    = 13
+colorGreen2    = 14
+colorCyan4     = 15
+colorCyan3     = 16
+colorCyan2     = 17
+colorRed4      = 18
+colorRed3      = 19
+colorRed2      = 20
+colorMagenta4  = 21
+colorMagenta3  = 22
+colorMagenta2  = 23
+colorBrown4    = 24
+colorBrown3    = 25
+colorBrown2    = 26
+colorPink4     = 27
+colorPink3     = 28
+colorPink2     = 29
+colorLightPink = 30
+colorGold      = 31
+colorCustom0   = 32
+
+# join styles
+joinStyleMiter = 0
+joinStyleBevel = 1
+joinStyleRound = 2
 
 # alignments
 alignLeft     = 0
@@ -124,11 +167,17 @@ ffSpecial    = 2
 ffPostScript = 4
 ffHidden     = 8
 
+paperSizes = ["Letter", "Legal", "Ledger", "Tabloid",
+			  "A", "B", "C", "D", "E",
+			  "A4", "A3", "A2", "A1", "A0", "B5"]
+
 def _join(*sequence):
 	parts = []
 	for item in sequence:
 		if type(item) == float:
 			parts.append(str(int(round(item))))
+		elif type(item) == bool:
+			parts.append(str(int(item)))
 		else:
 			parts.append(str(item))
 	return string.join(parts, " ")
@@ -169,7 +218,7 @@ class _Rect(object):
 				self.x2 = other[0]
 				self.y1 = other[1]
 				self.y2 = other[1]
-				self.empty = 0
+				self.empty = False
 			else:
 				self.x1 = min(self.x1, other[0])
 				self.y1 = min(self.y1, other[1])
@@ -218,9 +267,11 @@ class CustomColor(object):
 
 class Object(object):
 	"""Base class of all fig objects, handles common properties like
-	- lineStyle, lineWidth, styleValue (dash length / dot gap ratio)
+	- lineStyle (see lineStyleXXX constants)
+	- lineWidth (1/80th inch)
+	- styleValue (dash length / dot gap ratio) in 1/80th inches)
 	- penColor, fillColor, fillStyle
-	- depth
+	- depth (0-999)
 	- joinStyle and capStyle
 	- forwardArrow/backwardArrow (the latter are Arrow objects)"""
 	def __init__(self, type):
@@ -399,9 +450,9 @@ class PolylineBase(Object):
 	def __init__(self):
 		Object.__init__(self, figPolygon)
 		self.points = []
-		self.closed = 1
+		self.closed = True
 		self.pictureFilename = None
-		self.flipped = 0
+		self.flipped = False
 
 	def __str__(self):
 		pointCount = len(self.points)
@@ -465,30 +516,34 @@ class PolylineBase(Object):
 		for pointIndex in range(pointCount):
 			self.points.append((int(params[pointIndex * 2]),
 								int(params[pointIndex * 2 + 1])))
+
+		expectedPoints = (self._pointCount + (self.closed and 1 or 0))
+		moreToCome = len(self.points) < expectedPoints
 		if len(self.points) > self._pointCount:
-			if len(self.points) > self._pointCount + 1 or not self.closed:
+			if len(self.points) > expectedPoints:
 				sys.stderr.write("WARNING: read too many points?!\n")
 			del self.points[self._pointCount:]
-		return len(self.points) < self._pointCount
+
+		return moreToCome
 
 def _readPolylineBase(params):
 	result = PolylineBase()
 	result.subType = int(params[0])
-	result.closed = 0
+	result.closed = False
 	if result.subType == ptPolyline:
 		result.__class__ = PolyLine
 	if result.subType == ptBox:
 		result.__class__ = PolyBox
-		result.closed = 1
+		result.closed = True
 	if result.subType == ptPolygon:
 		result.__class__ = Polygon
-		result.closed = 1
+		result.closed = True
 	if result.subType == ptArcBox:
 		#result.__class__ = (not existing yet)
 		pass
 	if result.subType == ptPictureBBox:
 		result.__class__ = PictureBBox
-		result.closed = 1
+		result.closed = True
 	result.lineStyle = int(params[1])
 	result.lineWidth = int(params[2])
 	result.penColor = int(params[3])
@@ -523,7 +578,7 @@ class PolyBox(PolylineBase):
 		self.points.append((x2, y1))
 		self.points.append((x2, y2))
 		self.points.append((x1, y2))
-		self.closed = 1
+		self.closed = True
 
 	def center(self):
 		return ((self.points[0][0] + self.points[2][0])/2,
@@ -547,10 +602,10 @@ class PolyLine(PolylineBase):
 		PolylineBase.__init__(self)
 		self.subType = ptPolyline
 		self.points = points
-		self.closed = 0
+		self.closed = False
 
 class PictureBBox(PolylineBase):
-	def __init__(self, x1, y1, x2, y2, filename, flipped = 0):
+	def __init__(self, x1, y1, x2, y2, filename, flipped = False):
 		PolylineBase.__init__(self)
 		self.subType = ptPictureBBox
 		self.points.append((x1, y1))
@@ -559,13 +614,14 @@ class PictureBBox(PolylineBase):
 		self.points.append((x1, y2))
 		self.pictureFilename = filename
 		self.flipped = flipped
-		self.closed = 1
+		self.closed = True
 
 class SplineBase(Object):
 	def __init__(self):
 		Object.__init__(self, figSpline)
 		self.points = []
-		self.closed = 1
+		self.shapeFactors = []
+		self.closed = True
 
 	def __str__(self):
 		pointCount = len(self.points)
@@ -592,7 +648,9 @@ class SplineBase(Object):
 			result += _join("", point[0], point[1])
 		if self.closed:
 			result += _join("", self.points[0][0], self.points[0][1])
-		return result + "\n\t" + _join(*self.shapefactors) + "\n"
+		if self.subType in (stOpenXSpline, stClosedXSpline):
+			result += "\n\t" + _join(*self.shapeFactors) + "\n"
+		return result
 
 	def bounds(self):
 		result = _Rect()
@@ -609,23 +667,56 @@ class SplineBase(Object):
 			self.backwardArrow = Arrow(params)
 			return True
 
-		if len(self.points) < self._pointCount:
+		expectedPoints = (self._pointCount + (self.closed and 1 or 0))
+		if len(self.points) < expectedPoints:
 			pointCount = len(params) / 2
 			for pointIndex in range(pointCount):
 				self.points.append((int(params[pointIndex * 2]),
 									int(params[pointIndex * 2 + 1])))
-			if len(self.points) > self._pointCount:
-				del self.points[self._pointCount:]
+			if len(self.points) > expectedPoints:
+				sys.stderr.write("WARNING: read too many points?!\n")
+				del self.points[expectedPoints:]
 			return True
 
-		# FIXME more than one line, too?
-		self.shapefactors = params
+		if len(self.shapeFactors) < expectedPoints:
+			sfCount = len(params)
+			for sfIndex in range(sfCount):
+				self.shapeFactors.append(float(params[sfIndex]))
+			moreToCome = len(self.shapeFactors) < expectedPoints
+			if len(self.shapeFactors) > expectedPoints:
+				sys.stderr.write("WARNING: read too many shapeFactors?!\n")
+				del self.shapeFactors[expectedPoints:]
+			if moreToCome:
+				return True
+
+		if self.closed:
+			del self.points[-1]
+			del self.shapeFactors[-1]
+		return False
+
+class ApproximatedSpline(SplineBase):
+	pass
+
+class InterpolatedSpline(SplineBase):
+	pass
+
+class XSpline(SplineBase):
+	pass
 
 def _readSplineBase(params):
 	result = SplineBase()
 	result.subType = int(params[0])
-#	if result.subType == st:
-#		result.__class__ =
+	if result.subType == stClosedApproximated:
+		result.__class__ = ApproximatedSpline
+	elif result.subType == stOpenInterpolated:
+		result.__class__ = InterpolatedSpline
+		result.closed = False
+	elif result.subType == stClosedInterpolated:
+		result.__class__ = InterpolatedSpline
+	elif result.subType == stOpenXSpline:
+		result.__class__ = XSpline
+	elif result.subType == stClosedXSpline:
+		result.__class__ = XSpline
 	result.lineStyle = int(params[1])
 	result.lineWidth = int(params[2])
 	result.penColor = int(params[3])
@@ -635,13 +726,17 @@ def _readSplineBase(params):
 	result.fillStyle = int(params[7])
 	result.styleValue = float(params[8])
 	result.capStyle = int(params[9])
-	subLines = 2 # for the points and shape factors
+	subLines = 0
 	if int(params[10]):
 		result.forwardArrow = True
 		subLines += 1
 	if int(params[11]):
 		result.backwardArrow = True
 		subLines += 1
+	result._pointCount = int(params[12])
+	subLines += (result._pointCount+5)/6 # sublines to read for the points
+	if result.closed:
+		result._pointCount -= 1
 	return result, subLines
 
 class Text(Object):
@@ -757,12 +852,13 @@ class File(object):
 		self.objects = []
 		self.colors = []
 		self.colorhash = {}
+		self.filename = None
 
 		if inputFile == None:
 			self.landscape = 1
 			self.centered = 1
 			self.metric = 1
-			self.papersize = "A4"
+			self.paperSize = "A4"
 			self.magnification = 100.0
 			self.singlePage = 1
 			self.transparentColor = -2 # no transparency, -1 = background, else color#
@@ -772,10 +868,15 @@ class File(object):
 			stack = []
 			currentObject = None
 			subLineExpected = 0
-			if type(inputFile) == types.StringType:
+			if type(inputFile) == str:
+				self.filename = inputFile
 				inputFile = file(inputFile).readlines()
-			elif type(inputFile) == types.FileType:
+			elif hasattr(inputFile, "readlines"):
+				if hasattr(inputFile, "name"):
+					self.filename = inputFile.name
 				inputFile = inputFile.readlines()
+			# for error messages:
+			filename = self.filename and "'%s'" % self.filename or "<unnamed>"
 			for line in inputFile:
 				if line.startswith("#"):
 					continue
@@ -788,7 +889,7 @@ class File(object):
 				elif lineIndex == 2:
 					self.metric = (line.startswith("Metric"))
 				elif lineIndex == 3:
-					self.papersize = line
+					self.paperSize = line
 				elif lineIndex == 4:
 					self.magnification = float(line)
 				elif lineIndex == 5:
@@ -824,9 +925,8 @@ class File(object):
 						elif objectType == figCompoundEnd:
 							currentObject = stack.pop()
 						else:
-							sys.stderr.write("Unhandled object type in line %i:\n%s" %
-											 (lineIndex, line))
-							sys.exit(1)
+							raise ValueError(
+								"Unhandled object type %s!" % (objectType, ))
 					if currentObject != None and not subLineExpected:
 						if len(stack) > 0:
 							stack[-1].append(currentObject)
@@ -834,8 +934,8 @@ class File(object):
 							self.objects.append(currentObject)
 						currentObject = None
 				  except ValueError:
-					  sys.stderr.write("Parse in line %i:\n%s\n\n" %
-											 (lineIndex, line))
+					  sys.stderr.write("Parse error in %s, line %i:\n%s\n\n" %
+									   (filename, lineIndex + 1, line))
 					  raise
 				lineIndex += 1
 
@@ -929,7 +1029,7 @@ class File(object):
 			result += "Metric\n"
 		else:
 			result += "Inches\n"
-		result += self.papersize + "\n"
+		result += self.paperSize + "\n"
 		result += str(self.magnification) + "\n"
 		if self.singlePage:
 			result += "Single\n"
