@@ -6,7 +6,7 @@ You can read fig files into an object 'f' with
 _cvsVersion = "$Id$" \
               .split(" ")[2:-2]
 
-import sys, re, math, types, os
+import sys, re, math, types, os, operator
 
 # object codes
 figCustomColor   = 0
@@ -67,6 +67,11 @@ lineStyleDotted           = 2
 lineStyleDashDotted       = 3
 lineStyleDashDoubleDotted = 4
 lineStyleDashTripleDotted = 5
+
+# cap styles
+capStyleButt = 0
+capStyleRound = 1
+capStyleProjecting = 2
 
 standardColors = [
 	# pure colors:
@@ -208,11 +213,27 @@ def parseGeometry(geometryString):
 		vx2 = int(ma.group(4))
 		vy2 = int(ma.group(6))
 		if ma.group(3) == "+" or ma.group(5) == "x":
-			return _Rect(x1, y1, x1+vx2, y1+vy2)
+			return Rect(x1, y1, x1+vx2, y1+vy2)
 		else:
-			return _Rect(x1, y1, vx2, vy2)
+			return Rect(x1, y1, vx2, vy2)
 
 class Rect(object):
+	"""This is a simple, half-internal helper class for handling
+	Rectangles (e.g. used for bounding boxes).  If you are looking for
+	a rectangular figure object, PolyBox is your friend.
+
+	A Rect object has the properties x1, x2, y1, y2 carrying the
+	coordinates, and accessor functions width(), height(),
+	upperLeft(), lowerRight(), size().  (The latter return pairs of
+	coordinates.)
+
+	A special facility is the __call__ operator for adding
+	points/rects (sort of a UNION operation).
+
+	Finally, it is possible to do::
+	
+	  x1, y1, x2, y2 = someRect"""
+	
 	def __init__(self, *args):
 		assert len(args) in (0, 4), \
 			   "Rect.__init__() expecting zero or four parameters!"
@@ -244,6 +265,15 @@ class Rect(object):
 	
 	def height(self):
 		return self.y2 - self.y1
+
+	def upperLeft(self):
+		return self.x1, self.y1
+	
+	def lowerRight(self):
+		return self.x2, self.y2
+	
+	def size(self):
+		return self.width(), self.height()
 	
 	def __repr__(self):
 		return "fig.Rect(%d,%d,%d,%d)" % (self.x1, self.y1, self.x2, self.y2)
@@ -262,6 +292,8 @@ class Rect(object):
 
 class CustomColor(object):
 	def __init__(self, index, hexCode):
+		assert len(hexCode) == 7 and hexCode.startswith("#"), \
+			   "invalid hexCode given to CustomColor(), should look like '#fe0d00'"
 		self.index = index
 		self.hexCode = hexCode
 		#sys.stderr.write("CustomColor(%d, '%s') -> %s" % (index, hexCode, repr(self)))
@@ -278,13 +310,24 @@ class CustomColor(object):
 	def __cmp__(self, other):
 		if other == None:
 			return 1
-		if other.isinstance(other, CustomColor):
+		if isinstance(other, CustomColor):
 			return cmp(self.index, other.index)
+		if isinstance(other, str):
+			return cmp(self.hexCode, other)
 		return cmp(self.index, other)
 
+	def __sub__(self, other):
+		"""Returns RGB vector difference as (dr,dg,db) tuple."""
+		return map(operator.sub, self, other)
+
 	def __getitem__(self, index):
+		if index > 2:
+			raise IndexError("CustomColor.__getitem__: Only three components (r,g,b)!")
 		return int(self.hexCode[2*index+1:2*index+3], 16)
 
+	def __len__(self):
+		return 3
+	
 	def rgb(self):
 		return (self[0], self[1], self[2])
 
@@ -345,10 +388,10 @@ class ArcBase(Object):
 					   self.lineStyle, self.lineWidth,
 					   self.penColor, self.fillColor,
 					   self.depth, self.penStyle,
-					   self.fillStyle, self.lineStyle > 0 and self.styleValue or 0.0,
+					   self.fillStyle, str(self.styleValue),
 					   self.capStyle, self.direction,
 					   hasForwardArrow, hasBackwardArrow,
-					   self.centerX, self.centerY,
+					   str(self.centerX), str(self.centerY),
 					   self.points[0][0], self.points[0][1],
 					   self.points[1][0], self.points[1][1],
 					   self.points[2][0], self.points[2][1]) + "\n"
@@ -438,9 +481,9 @@ class EllipseBase(Object):
 					 self.lineStyle, self.lineWidth,
 					 self.penColor, self.fillColor,
 					 self.depth, self.penStyle,
-					 self.fillStyle, self.styleValue,
+					 self.fillStyle, str(self.styleValue),
 					 1, # "1" is self.direction
-					 self.angle,
+					 str(self.angle),
 					 self.center[0], self.center[1],
 					 self.radius[0], self.radius[1],
 					 self.start[0], self.start[1],
@@ -565,7 +608,7 @@ class PolylineBase(Object):
 					   self.lineStyle, self.lineWidth,
 					   self.penColor, self.fillColor,
 					   self.depth, self.penStyle,
-					   self.fillStyle, self.styleValue,
+					   self.fillStyle, str(self.styleValue),
 					   self.joinStyle, self.capStyle, self.radius,
 					   hasForwardArrow, hasBackwardArrow,
 					   pointCount) + "\n"
@@ -681,9 +724,11 @@ class ArcBox(PolyBox):
 		return ptArcBox
 
 class Polygon(PolylineBase):
-	def __init__(self, points, closed):
+	def __init__(self, points, closed = True):
 		PolylineBase.__init__(self)
 		self.points = points
+		if not closed:
+			self.changeType(ptPolyline)
 
 	def polylineType(self):
 		return ptPolygon
@@ -695,7 +740,6 @@ class PolyLine(PolylineBase):
 	def __init__(self, *points):
 		PolylineBase.__init__(self)
 		self.points = points
-		self.closed = False
 
 	def polylineType(self):
 		return ptPolyline
@@ -738,7 +782,7 @@ class SplineBase(Object):
 					   self.lineStyle, self.lineWidth,
 					   self.penColor, self.fillColor,
 					   self.depth, self.penStyle,
-					   self.fillStyle, self.styleValue, self.capStyle,
+					   self.fillStyle, str(self.styleValue), self.capStyle,
 					   hasForwardArrow, hasBackwardArrow,
 					   pointCount) + "\n"
 
@@ -887,15 +931,15 @@ class Text(Object):
 	def __str__(self):
 		result = _join(figText, self.subType,
 					   self.penColor, self.depth, self.penStyle,
-					   self.font, self.fontSize, self.fontAngle, self.fontFlags,
-					   self.height, self.length, self.x, self.y,
+					   self.font, str(self.fontSize), str(self.fontAngle), self.fontFlags,
+					   str(self.height), str(self.length), self.x, self.y,
 					   self.text + "\\001") + "\n"
 
 		return result
 
-def _readText(params):
+def _readText(params, text):
 	result = Text(int(params[10]), int(params[11]),
-				  params[12][:-4], int(params[0]))
+				  text, int(params[0]))
 	result.penColor = int(params[1])
 	result.depth = int(params[2])
 	result.penStyle = int(params[3])
@@ -924,6 +968,19 @@ class Compound(object):
 	def append(self, object):
 		self.objects.append(object)
 		self._bounds(object.bounds())
+
+		# same as File.remove
+	def remove(self, object):
+		try:
+			self.objects.remove(object)
+		except ValueError:
+			for o in self.objects:
+				if type(o) == Compound:
+					try:
+						o.remove(object)
+						return
+					except ValueError:
+						pass
 
 	def __str__(self):
 		if len(self.objects) < 1:
@@ -967,6 +1024,17 @@ class _AllObjectIter(object):
 		except StopIteration:
 			del self.iters[-1]
 		return self.next()
+
+class ObjectProxy(list):
+	def __setattr__(self, key, value):
+		for ob in self:
+			if hasattr(ob, key):
+				setattr(ob, key, value)
+
+	def remove(self):
+		assert self.parent, "ObjectProxy.remove() needs access to the parent"
+		for ob in self:
+			self.parent.remove(ob)
 
 # --------------------------------------------------------------------
 # 								 file
@@ -1033,8 +1101,7 @@ class File(object):
 						objectType = int(params[0])
 						subLineExpected = 0
 						if objectType == figCustomColor:
-							self.colors.append(
-								CustomColor(int(params[1]), params[2]))
+							self.addColor(CustomColor(int(params[1]), params[2]))
 						elif objectType == figPolygon:
 							currentObject, subLineExpected = _readPolylineBase(params[1:])
 						elif objectType == figArc:
@@ -1042,7 +1109,8 @@ class File(object):
 						elif objectType == figSpline:
 							currentObject, subLineExpected = _readSplineBase(params[1:])
 						elif objectType == figText:
-							currentObject, subLineExpected = _readText(params[1:])
+							currentObject, subLineExpected = _readText(
+								params[1:], re.split(" +", line, 13)[-1][:-4])
 						elif objectType == figEllipse:
 							currentObject, subLineExpected = _readEllipseBase(params[1:])
 						elif objectType == figCompoundBegin:
@@ -1071,19 +1139,67 @@ class File(object):
 		get the compound objects themselves returned, too."""
 		return _AllObjectIter(self, not includeCompounds)
 
+	def findObjects(self, **kwargs):
+		"""Returns a list of objects which have attribute/value pairs
+		matching the given keyword parameters.  The key "type" is
+		treated special, see these useful examples:
+
+		  figFile.findObjects(depth = 40)
+		  figFile.findObjects(type = fig.Polygon)
+		  # all conditions must be fulfilled:
+		  figFile.findObjects(lineWidth = 10, depth = 100)
+		  # for disjunctive conditions, use list concatenation:
+		  figFile.findObjects(depth = 10) + figFile.findObjects(depth = 20)
+		"""
+
+		result = ObjectProxy()
+		result.__dict__["parent"] = self
+		for o in self.allObjects():
+			match = True
+			for key in kwargs:
+				if key == "type":
+					if type(o) != kwargs[key]:
+						match = False
+						continue
+				elif getattr(o, key, "attribNotPresent") != kwargs[key]:
+					match = False
+					continue
+			if match:
+				result.append(o)
+		return result
+
+	def layer(self, layer):
+		return self.findObjects(depth = layer)
+
 	def append(self, object):
 		"""Adds the object to this document, i.e. appends an object to
 		self.objects (or self.colors if it's a CustomColor)."""
 		if type(object) == CustomColor:
-			self.colors.append(object)
+			self.addColor(object)
 		else:
 			self.objects.append(object)
 
+		# same as Compound.remove
 	def remove(self, object):
-		self.objects.remove(object)
+		try:
+			self.objects.remove(object)
+		except ValueError:
+			for o in self.objects:
+				if type(o) == Compound:
+					try:
+						o.remove(object)
+						return
+					except ValueError:
+						pass
 
 	def addColor(self, hexCode):
-		result = CustomColor(colorCustom0 + len(self.colors), hexCode)
+		if isinstance(hexCode, str):
+			result = CustomColor(colorCustom0 + len(self.colors), hexCode)
+		elif isinstance(hexCode, CustomColor):
+			result = hexCode
+			hexCode = result.hexCode
+		else:
+			raise TypeError("addColor() should be called with a hexCode (e.g. #ffee00) or a CustomColor instance")
 		self.colors.append(result)
 		self.colorhash[hexCode] = result
 		return result
@@ -1092,10 +1208,20 @@ class File(object):
 		"""Returns a color object for the given color, adding a new
 		custom color to this document if it does not yet exist.  The
 		color can be given as tuple of 0..255 values for R,G,B or as
-		hex string (e.g. (0, 255, 0) or '#00ff00' for green)."""
-		
+		hex string (e.g. (0, 255, 0) or '#00ff00' for green).
+
+		If the optional parameter 'similarity' is > 0.0, getColor()
+		will return the first color found whose RGB difference's
+		magnitude is < similarity, if any (otherwise, it will call
+		addColor(), exactly as if similarity was not used).
+
+		If similarity is given, but not > 0.0, addColor() will not be
+		called, but a KeyError will be raised, if the exact color
+		cannot be returned."""
+
+		inputGiven = color
 		if type(color) == float: # accept grayvalues as float (0..1)
-			color = int(round((color*255)))
+			color = int(round(color*255))
 		if type(color) == int: # accept grayvalues as int (0..255)
 			color = (color, color, color)
 		if type(color) == types.TupleType: # accept colors as 3-tuple of (0..255)
@@ -1106,22 +1232,24 @@ class File(object):
 			color = "#%02x%02x%02x" % color
 		if type(color) != types.StringType: # accept RGB color objects
 			color = "#%02x%02x%02x" % tuple(color)
-		assert len(color) == 7, "too large values given for red, green, or blue"
+		assert len(color) == 7, \
+			   "too large values given for red, green, or blue: %s" % (inputGiven, )
 		try:
 			return self.colorhash[color]
 		except KeyError:
 			if similarity != None:
-				if similarity > 0.0:
-					t = CustomColor(None, color)
-					for hex in self.colorhash:
-						o = self.colorhash[hex]
-						def sq(x): return x*x
-						if math.sqrt(sq(o[0]-t[0]) +
-									 sq(o[1]-t[1]) +
-									 sq(o[2]-t[2])) < similarity:
-							return o
-				else:
-					raise # if similarity == 0.0 or < 0, don't add color
+				if not similarity > 0.0:
+					raise # if similarity <= 0.0, don't add color
+
+				if self.colors: # don't choke when there are no colors yet
+					def rgbDiffSortTuple(otherRGB,
+										 searchRGB = CustomColor(None, color)):
+						return sum(map(lambda x: x*x, searchRGB-otherRGB)), otherRGB
+					matches = map(rgbDiffSortTuple, self.colors)
+					matches.sort()
+					bestSqDiff, bestColor = matches[0]
+					if bestSqDiff < similarity*similarity:
+						return bestColor
 			return self.addColor(color)
 
 	def colorRGB(self, color):
@@ -1168,34 +1296,30 @@ class File(object):
 		"""Returns the part of the XFig file containing all objects
 		(but not the custom colors).  This is the same as str(object)
 		concatenated for each object in (figfile).objects."""
-		result = ""
-		for object in self.objects:
-			result += str(object)
-		return result
+		return "".join(map(str, self.objects))
 
 	def __str__(self):
 		"""Returns the contents of this file in the XFig file format as string.
 		See save()."""
-		result = self.headerStr()
-		for color in self.colors:
-			result += repr(color)
-		result += self.objectsStr()
+		result = self.headerStr() + \
+				 "".join(map(repr, self.colors)) + \
+				 self.objectsStr()
 		return result
 
-	def save(self, filename):
-		"""Saves the contents of this file in the XFig file format to
-		the file 'filename'.  figfile.save(filename) is equivalent to:
-		
-		  file(filename, "w").write(str(figfile))"""
-		
-		file(filename, "w").write(str(self))
+	def save(self, filename = None):
+		"""figfile.save(filename = None)
 
-	def save(self, filename):
-		"""Saves the contents of this file in the XFig file format to
-		the file 'filename'.  figfile.save(filename) is equivalent to:
+		Saves the contents of this file in the XFig file format to
+		the file 'filename'.  Equivalent to:
 		
-		  file(filename, "w").write(str(figfile))"""
-		
+		  file(filename, "w").write(str(figfile))
+
+		If filename is not given, and figfile was constructed from an
+		existing file, that one is overwritten (-> figfile.filename)."""
+
+		if filename == None:
+			filename = self.filename
+			assert filename, "figfile.save() needs a filename!"
 		file(filename, "w").write(str(self))
 
 	def saveEPS(self, basename):
