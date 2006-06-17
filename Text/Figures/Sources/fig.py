@@ -163,9 +163,43 @@ alignLeft     = 0
 alignCentered = 1
 alignRight    = 2
 
-# fonts
-fontDefault   = 0
-fontHelvetica = 16
+# PS fonts (only valid if font flags == 2): # FIXME: PS prefix?
+fontDefault                        = -1
+fontTimesRoman                     = 0
+fontTimesItalic                    = 1
+fontTimesBold                      = 2
+fontTimesBoldItalic                = 3
+fontAvantGardeBook                 = 4
+fontAvantGardeBookOblique          = 5
+fontAvantGardeDemi                 = 6
+fontAvantGardeDemiOblique          = 7
+fontBookmanLight                   = 8
+fontBookmanLightItalic             = 9
+fontBookmanDemi                    = 10
+fontBookmanDemiItalic              = 11
+fontCourier                        = 12
+fontCourierOblique                 = 13
+fontCourierBold                    = 14
+fontCourierBoldOblique             = 15
+fontHelvetica                      = 16
+fontHelveticaOblique               = 17
+fontHelveticaBold                  = 18
+fontHelveticaBoldOblique           = 19
+fontHelveticaNarrow                = 20
+fontHelveticaNarrowOblique         = 21
+fontHelveticaNarrowBold            = 22
+fontHelveticaNarrowBoldOblique     = 23
+fontNewCenturySchoolbookRoman      = 24
+fontNewCenturySchoolbookItalic     = 25
+fontNewCenturySchoolbookBold       = 26
+fontNewCenturySchoolbookBoldItalic = 27
+fontPalatinoRoman                  = 28
+fontPalatinoItalic                 = 29
+fontPalatinoBold                   = 30
+fontPalatinoBoldItalic             = 31
+fontSymbol                         = 32
+fontZapfChanceryMediumItalic       = 33
+fontZapfDingbats                   = 34
 
 # font flags
 ffRigid      = 1
@@ -1058,6 +1092,7 @@ class File(object):
 			self.ppi = 1200 # figure units per inch
 		else:
 			lineIndex = 0
+			commentCount = 0
 			stack = []
 			currentObject = None
 			subLineExpected = 0
@@ -1071,9 +1106,10 @@ class File(object):
 			# for error messages:
 			filename = self.filename and "'%s'" % self.filename or "<unnamed>"
 			for line in inputFile:
-				if line.startswith("#"):
-					continue
 				line = line.strip()
+				if line.startswith("#") or not line:
+					commentCount += 1
+					continue
 				#print line
 				if lineIndex == 0:
 					self.landscape = (line.startswith("Landscape"))
@@ -1128,7 +1164,7 @@ class File(object):
 						currentObject = None
 				  except ValueError:
 					  sys.stderr.write("Parse error in %s, line %i:\n%s\n\n" %
-									   (filename, lineIndex + 1, line))
+									   (filename, lineIndex + commentCount + 1, line))
 					  raise
 				lineIndex += 1
 
@@ -1170,6 +1206,11 @@ class File(object):
 
 	def layer(self, layer):
 		return self.findObjects(depth = layer)
+
+	def layers(self):
+		result = dict.fromkeys([ob.depth for ob in self.allObjects()]).keys()
+		result.sort()
+		return result
 
 	def append(self, object):
 		"""Adds the object to this document, i.e. appends an object to
@@ -1315,12 +1356,13 @@ class File(object):
 		  file(filename, "w").write(str(figfile))
 
 		If filename is not given, and figfile was constructed from an
-		existing file, that one is overwritten (-> figfile.filename)."""
+		existing file, that one is overwritten (-> figfile.filename).
+		(The filename becomes the new figfile.filename.)"""
 
-		if filename == None:
-			filename = self.filename
-			assert filename, "figfile.save() needs a filename!"
-		file(filename, "w").write(str(self))
+		if filename != None:
+			self.filename = filename
+		assert self.filename, "figfile.save() needs a filename!"
+		file(self.filename, "w").write(str(self))
 
 	def saveEPS(self, basename):
 		"""Saves the contents of this file to [basename].fig and calls
@@ -1361,4 +1403,5 @@ if __name__ == "__main__":
 # - attribute trick for Compounds (and to-be-done Layer objects?!)
 # - clean up reading code (File could group lines based on whitespace prefixes)
 # - check shape factors of ApproximatedSpline / InterpolatedSpline
-
+# - common base class Container for Compounds, ObjectProxy and File
+#   (with allObjects, findObjects, layer, ...)
