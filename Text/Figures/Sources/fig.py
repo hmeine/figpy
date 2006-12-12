@@ -306,6 +306,9 @@ class Rect(object):
 	def lowerRight(self):
 		return self.x2, self.y2
 	
+	def center(self):
+		return (self.x2 + self.x1) / 2, (self.y2 + self.y1) / 2
+	
 	def size(self):
 		return self.width(), self.height()
 	
@@ -1016,6 +1019,9 @@ class Compound(object):
 					except ValueError:
 						pass
 
+	def __iter__(self):
+		return iter(self.objects)
+
 	def __str__(self):
 		if len(self.objects) < 1:
 			return ""
@@ -1036,21 +1042,21 @@ def _readCompound(params):
 	return result
 
 class _AllObjectIter(object):
-	def __init__(self, file, skipCompounds = True):
+	def __init__(self, container, skipCompounds = True):
 		self.file = file
-		self.iters = [iter(file.objects)]
+		self.iters = [iter(container)]
 		self.skipCompounds = skipCompounds
 
 	def __iter__(self):
 		return self
 
 	def next(self):
-		if not len(self.iters) > 0:
+		if not self.iters:
 			raise StopIteration
 		try:
 			next = self.iters[-1].next()
 			if type(next) == Compound:
-				self.iters.append(iter(next.objects))
+				self.iters.append(iter(next))
 				if not self.skipCompounds:
 					return next
 			else:
@@ -1059,24 +1065,87 @@ class _AllObjectIter(object):
 			del self.iters[-1]
 		return self.next()
 
-class ObjectProxy(list):
+class Container(list):
+	def allObjects(self, includeCompounds = False):
+		"""Returns an iterator iterating over all objects in this
+		document, recursively entering compound objects.  You can use
+		the optional parameter includeCompounds (default: False) to
+		get the compound objects themselves returned, too."""
+		return _AllObjectIter(self, not includeCompounds)
+
+	def findObjects(self, **kwargs):
+		"""Returns a list of objects which have attribute/value pairs
+		matching the given keyword parameters.  The key "type" is
+		treated special, see these useful examples:
+
+		  figFile.findObjects(depth = 40)
+		  figFile.findObjects(type = fig.Polygon)
+		  # all conditions must be fulfilled:
+		  figFile.findObjects(lineWidth = 10, depth = 100)
+		  # for disjunctive conditions, use list concatenation:
+		  figFile.findObjects(depth = 10) + figFile.findObjects(depth = 20)
+		"""
+
+		result = ObjectProxy()
+		result.__dict__["parent"] = self
+		for o in self.allObjects():
+			match = True
+			for key in kwargs:
+				if key == "type":
+					if not isinstance(o, kwargs[key]):
+						match = False
+						continue
+				elif getattr(o, key, "attribNotPresent") != kwargs[key]:
+					match = False
+					continue
+			if match:
+				result.append(o)
+		return result
+
+	def layer(self, layer):
+		return self.findObjects(depth = layer)
+
+	def layers(self):
+		result = dict.fromkeys([ob.depth for ob in self.allObjects()]).keys()
+		result.sort()
+		return result
+
+	def remove(self, object):
+		try:
+			list.remove(self, object)
+		except ValueError:
+			for o in self:
+				if type(o) == Compound:
+					try:
+						o.remove(object)
+						return
+					except ValueError:
+						pass
+
+class ObjectProxy(Container):
 	def __setattr__(self, key, value):
 		for ob in self:
 			if hasattr(ob, key):
 				setattr(ob, key, value)
 
-	def remove(self):
-		assert self.parent, "ObjectProxy.remove() needs access to the parent"
-		for ob in self:
-			self.parent.remove(ob)
-
+	def remove(self, *args):
+		"""When no arguments are given, remove all objects from parent
+		container.  Else, remove given object from this container."""
+		
+		if not args:
+			assert self.parent, "ObjectProxy.remove() needs access to the parent"
+			for ob in self:
+				self.parent.remove(ob)
+		else:
+			Container.remove(self, *args)
+	
 # --------------------------------------------------------------------
 # 								 file
 # --------------------------------------------------------------------
 
-class File(object):
+class File(Container):
 	def __init__(self, inputFile = None):
-		self.objects = []
+		Container.__init__(self)
 		self.colors = []
 		self.colorhash = {}
 		self.filename = None
@@ -1160,7 +1229,7 @@ class File(object):
 						if stack:
 							stack[-1].append(currentObject)
 						else:
-							self.objects.append(currentObject)
+							self.append(currentObject)
 						currentObject = None
 				  except ValueError:
 					  sys.stderr.write("Parse error in %s, line %i:\n%s\n\n" %
@@ -1168,70 +1237,14 @@ class File(object):
 					  raise
 				lineIndex += 1
 
-	def allObjects(self, includeCompounds = False):
-		"""Returns an iterator iterating over all objects in this
-		document, recursively entering compound objects.  You can use
-		the optional parameter includeCompounds (default: False) to
-		get the compound objects themselves returned, too."""
-		return _AllObjectIter(self, not includeCompounds)
-
-	def findObjects(self, **kwargs):
-		"""Returns a list of objects which have attribute/value pairs
-		matching the given keyword parameters.  The key "type" is
-		treated special, see these useful examples:
-
-		  figFile.findObjects(depth = 40)
-		  figFile.findObjects(type = fig.Polygon)
-		  # all conditions must be fulfilled:
-		  figFile.findObjects(lineWidth = 10, depth = 100)
-		  # for disjunctive conditions, use list concatenation:
-		  figFile.findObjects(depth = 10) + figFile.findObjects(depth = 20)
-		"""
-
-		result = ObjectProxy()
-		result.__dict__["parent"] = self
-		for o in self.allObjects():
-			match = True
-			for key in kwargs:
-				if key == "type":
-					if type(o) != kwargs[key]:
-						match = False
-						continue
-				elif getattr(o, key, "attribNotPresent") != kwargs[key]:
-					match = False
-					continue
-			if match:
-				result.append(o)
-		return result
-
-	def layer(self, layer):
-		return self.findObjects(depth = layer)
-
-	def layers(self):
-		result = dict.fromkeys([ob.depth for ob in self.allObjects()]).keys()
-		result.sort()
-		return result
-
 	def append(self, object):
-		"""Adds the object to this document, i.e. appends an object to
-		self.objects (or self.colors if it's a CustomColor)."""
+		"""Adds the object to this document, CustomColors are appended
+		to self.colors."""
+
 		if type(object) == CustomColor:
 			self.addColor(object)
 		else:
-			self.objects.append(object)
-
-		# same as Compound.remove
-	def remove(self, object):
-		try:
-			self.objects.remove(object)
-		except ValueError:
-			for o in self.objects:
-				if type(o) == Compound:
-					try:
-						o.remove(object)
-						return
-					except ValueError:
-						pass
+			Container.append(self, object)
 
 	def addColor(self, hexCode):
 		if isinstance(hexCode, str):
@@ -1334,20 +1347,24 @@ class File(object):
 		return result
 
 	def objectsStr(self):
-		"""Returns the part of the XFig file containing all objects
+		"""figfile.objectsStr()
+
+		Returns the part of the XFig file containing all objects
 		(but not the custom colors).  This is the same as str(object)
-		concatenated for each object in (figfile).objects."""
-		return "".join(map(str, self.objects))
+		concatenated for each object in `figfile`."""
+		
+		return "".join(map(str, self))
 
 	def __str__(self):
 		"""Returns the contents of this file in the XFig file format as string.
 		See save()."""
+		
 		result = self.headerStr() + \
 				 "".join(map(repr, self.colors)) + \
 				 self.objectsStr()
 		return result
 
-	def save(self, filename = None):
+	def save(self, filename = None, fig2dev = None):
 		"""figfile.save(filename = None)
 
 		Saves the contents of this file in the XFig file format to
@@ -1364,18 +1381,53 @@ class File(object):
 		assert self.filename, "figfile.save() needs a filename!"
 		file(self.filename, "w").write(str(self))
 
-	def saveEPS(self, basename):
+		if fig2dev:
+			self.fig2dev(lang = fig2dev)
+
+	def fig2dev(self, input = None, output = None, lang = "eps"):
+		if input == None:
+			input = self.filename
+
+		path, basename = os.path.split(input)
+
+		if not output:
+			output = basename
+			if output.endswith(".fig"):
+				output = output[:-4]
+			output += "." + lang
+		
+		oldcwd = None
+		if path:
+			oldcwd = os.path.abspath(".")
+			os.chdir(path)
+
+		try:
+			cin, cout = os.popen4("fig2dev -L %s '%s' '%s'" % (
+				lang, input, output))
+			cin.close()
+			sys.stdout.write(cout.read())
+			cout.close()
+		finally:
+			if oldcwd:
+				os.chdir(oldcwd)
+
+	def saveEPS(self, basename = None):
 		"""Saves the contents of this file to [basename].fig and calls
 		fig2dev to create a [basename].eps, too.  The basename
 		(without either .fig or .eps!) is returned, so that you can
 		use expressions like:
 
-		  resultBasename = figFile.saveEPS(namePrefix + "_%d" % index)"""
+		  resultBasename = figFile.saveEPS(namePrefix + "_%d" % index)
 
-		self.save(basename + ".fig")
-		cin, cout = os.popen4("fig2dev -Leps %s.fig %s.eps" % ((basename, )*2))
-		cin.close(); print cout.read()
-		del cin, cout
+		Furthermore, the basename defaults to figFile.filename without the .fig."""
+
+		if basename == None:
+			assert self.filename, "figfile.save[EPS]() needs a filename!"
+			basename = self.filename
+		if basename.endswith(".fig") or basename.endswith(".eps"):
+			basename = basename[:-4]
+
+		self.save(basename + ".fig", fig2dev = "eps")
 
 		return basename
 
