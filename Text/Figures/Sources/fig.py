@@ -1384,7 +1384,30 @@ class File(Container):
 		if fig2dev:
 			self.fig2dev(lang = fig2dev)
 
+		return self.filename
+
 	def fig2dev(self, input = None, output = None, lang = "eps"):
+		"""figfile.fig2dev(input = None, output = None, lang = "eps")
+		
+		Calls fig2dev on the file 'input' to produce the file 'output'.
+		(Both default to the current figfile's filename and the same
+		filename with the extension changed to lang.)
+		Note that output must be a path *relative to the 'input' path*!
+		Returns the filename of the resulting file.
+
+		Usually, you just call sth. like
+
+		   figfile = fig.File("myfigfile.fig")
+		   ...
+		   figfile.save()
+		   figfile.fig2dev(lang = "pdf")
+
+		to produce myfigfile.pdf.  It is even easier is to use the
+		following convenient shortcut:
+
+		   figfile.save(fig2dev = "pdf")
+		"""
+		
 		if input == None:
 			input = self.filename
 
@@ -1403,13 +1426,15 @@ class File(Container):
 
 		try:
 			cin, cout = os.popen4("fig2dev -L %s '%s' '%s'" % (
-				lang, input, output))
+				lang, basename, output))
 			cin.close()
 			sys.stdout.write(cout.read())
 			cout.close()
 		finally:
 			if oldcwd:
 				os.chdir(oldcwd)
+
+		return os.path.normpath(os.path.join(path, output))
 
 	def saveEPS(self, basename = None):
 		"""Saves the contents of this file to [basename].fig and calls
