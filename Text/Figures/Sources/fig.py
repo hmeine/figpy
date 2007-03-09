@@ -623,6 +623,9 @@ class PolylineBase(Object):
 		self.flipped = False
 
 	def changeType(self, polylineType):
+		wasClosed = None
+		if type(self) != PolylineBase:
+			wasClosed = self.closed()
 		if polylineType == ptPolyline:
 			self.__class__ = PolyLine
 		if polylineType == ptBox:
@@ -633,6 +636,9 @@ class PolylineBase(Object):
 			self.__class__ = ArcBox
 		if polylineType == ptPictureBBox:
 			self.__class__ = PictureBBox
+		if wasClosed == False and self.closed() and len(self.points) > 1:
+			if self.points[-1] == self.points[0]:
+				del self.points[-1]
 
 	def __str__(self):
 		pointCount = len(self.points)
@@ -1151,7 +1157,7 @@ class File(Container):
 		self.filename = None
 
 		if inputFile == None:
-			self.landscape = True
+			self.landscape = False
 			self.centered = True
 			self.metric = True
 			self.paperSize = "A4"
