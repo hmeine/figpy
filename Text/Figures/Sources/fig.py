@@ -1531,9 +1531,9 @@ if __name__ == "__main__":
 				for li in range(b2, e2):
 					print "+", output[li]
 			
-	#print ,
-	import doctest
-	doctest.testfile('index.rst')
+	else:
+		import doctest
+		doctest.testfile('index.rst')
 
 # FIGPY=../Diplomarbeit/Text/Figures/Sources/fig.py
 # SED='sed s,\.0\+,,g'; for i in *.fig; do python $FIGPY $i | $SED > /tmp/foo && $SED $i | diff -ubd - /tmp/foo; done
