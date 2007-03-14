@@ -955,7 +955,7 @@ class Text(Object):
 		Object.__init__(self)
 		self.text = text
 		self.font = fontDefault
-		self.fontSize = 12.0
+		self.fontSize = 12
 		self.fontAngle = 0.0
 		self.fontFlags = ffPostScript
 		self.height = 136
@@ -980,8 +980,8 @@ class Text(Object):
 	def __str__(self):
 		result = _join(figText, self.subType,
 					   self.penColor, self.depth, self.penStyle,
-					   self.font, str(self.fontSize), str(self.fontAngle), self.fontFlags,
-					   str(self.height), str(self.length), self.x, self.y,
+					   self.font, self.fontSize, str(self.fontAngle), self.fontFlags,
+					   self.height, self.length, self.x, self.y,
 					   self.text + "\\001") + "\n"
 
 		return result
@@ -1065,7 +1065,7 @@ class Container(list):
 
 		result = ObjectProxy()
 		result.__dict__["parent"] = self
-		for o in self.allObjects():
+		for o in self.allObjects("type" in kwargs and kwargs["type"] == Compound):
 			match = True
 			for key in kwargs:
 				if key == "type":
@@ -1508,7 +1508,30 @@ class File(Container):
 # --------------------------------------------------------------------
 
 if __name__ == "__main__":
-	#print str(File(sys.argv[1])),
+	if sys.argv:
+		def normalize(text):
+			result = []
+			for line in text.split("\n"):
+				result.append(re.sub(r"0*\b", "", line.strip()))
+			return result
+		
+		import difflib, re
+		for fn in sys.argv[1:]:
+			input = normalize(file(fn).read())
+			output = normalize(str(File(fn)))
+# 			for line in difflib.unified_diff(input, output):
+# 				print line
+			sm = difflib.SequenceMatcher(None, input, output)
+			for code, b1, e1, b2, e2 in sm.get_opcodes():
+				if code == 'equal':
+					continue
+				assert code == 'replace'
+				for li in range(b1, e1):
+					print "-", input[li]
+				for li in range(b2, e2):
+					print "+", output[li]
+			
+	#print ,
 	import doctest
 	doctest.testfile('index.rst')
 
