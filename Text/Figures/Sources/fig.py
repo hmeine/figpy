@@ -1001,57 +1001,8 @@ def _readText(params, text):
 	return result, 0
 
 # --------------------------------------------------------------------
-# 							  compounds
+# 			   Container and ObjectProxy utility classes
 # --------------------------------------------------------------------
-
-class Compound(object):
-	def __init__(self, parent = None):
-		self.objects = []
-		self._bounds = Rect()
-		if parent != None:
-			parent.append(self)
-
-	def bounds(self):
-		return self._bounds
-
-	def append(self, object):
-		self.objects.append(object)
-		self._bounds(object.bounds())
-
-		# same as File.remove
-	def remove(self, object):
-		try:
-			self.objects.remove(object)
-		except ValueError:
-			for o in self.objects:
-				if type(o) == Compound:
-					try:
-						o.remove(object)
-						return
-					except ValueError:
-						pass
-
-	def __iter__(self):
-		return iter(self.objects)
-
-	def __str__(self):
-		if len(self.objects) < 1:
-			return ""
-		result = ""
-		for o in self.objects:
-			result += str(o)
-		return _join(figCompoundBegin,
-					 int(self._bounds.x1), int(self._bounds.y1),
-					 int(self._bounds.x2), int(self._bounds.y2)) + "\n" + \
-			   result + str(figCompoundEnd) + "\n"
-
-def _readCompound(params):
-	result = Compound()
-	result._bounds.x1 = int(params[0])
-	result._bounds.y1 = int(params[1])
-	result._bounds.x2 = int(params[2])
-	result._bounds.y2 = int(params[3])
-	return result
 
 class _AllObjectIter(object):
 	"helper class, see Container.allObjects()"
@@ -1199,6 +1150,42 @@ class ObjectProxy(Container):
 		else:
 			Container.remove(self, *args)
 	
+# --------------------------------------------------------------------
+# 							  compounds
+# --------------------------------------------------------------------
+
+class Compound(Container):
+	def __init__(self, parent = None):
+		self._bounds = Rect()
+		if parent != None:
+			parent.append(self)
+
+	def bounds(self):
+		return self._bounds
+
+	def append(self, object):
+		super(Compound, self).append(object)
+		self._bounds(object.bounds())
+
+	def __str__(self):
+		if len(self) < 1:
+			return ""
+		result = ""
+		for o in self:
+			result += str(o)
+		return _join(figCompoundBegin,
+					 int(self._bounds.x1), int(self._bounds.y1),
+					 int(self._bounds.x2), int(self._bounds.y2)) + "\n" + \
+			   result + str(figCompoundEnd) + "\n"
+
+def _readCompound(params):
+	result = Compound()
+	result._bounds.x1 = int(params[0])
+	result._bounds.y1 = int(params[1])
+	result._bounds.x2 = int(params[2])
+	result._bounds.y2 = int(params[3])
+	return result
+
 # --------------------------------------------------------------------
 # 								 file
 # --------------------------------------------------------------------
