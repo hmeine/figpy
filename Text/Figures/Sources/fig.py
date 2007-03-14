@@ -1054,10 +1054,12 @@ def _readCompound(params):
 	return result
 
 class _AllObjectIter(object):
-	def __init__(self, container, skipCompounds = True):
+	"helper class, see Container.allObjects()"
+	
+	def __init__(self, container, includeCompounds):
 		self.file = file
 		self.iters = [iter(container)]
-		self.skipCompounds = skipCompounds
+		self.includeCompounds = includeCompounds
 
 	def __iter__(self):
 		return self
@@ -1069,7 +1071,7 @@ class _AllObjectIter(object):
 			next = self.iters[-1].next()
 			if type(next) == Compound:
 				self.iters.append(iter(next))
-				if not self.skipCompounds:
+				if self.includeCompounds:
 					return next
 			else:
 				return next
@@ -1078,12 +1080,20 @@ class _AllObjectIter(object):
 		return self.next()
 
 class Container(list):
+	"""Container for fig objects, derived from the standard python
+	list.  This is the common subclass of File (for the whole
+	document) and ObjectProxy (for search results, see findObjects()
+	or layer()."""
+	
 	def allObjects(self, includeCompounds = False):
-		"""Returns an iterator iterating over all objects in this
-		document, recursively entering compound objects.  You can use
+		"""container.allObjects(includeCompounds = False) -> iterator
+
+		Returns an iterator iterating over all objects in this
+		container, recursively entering compound objects.  You can use
 		the optional parameter includeCompounds (default: False) to
 		get the compound objects themselves returned, too."""
-		return _AllObjectIter(self, not includeCompounds)
+		
+		return _AllObjectIter(self, includeCompounds)
 
 	def findObjects(self, **kwargs):
 		"""Returns a list of objects which have attribute/value pairs
@@ -1096,7 +1106,11 @@ class Container(list):
 		  figFile.findObjects(lineWidth = 10, depth = 100)
 		  # for disjunctive conditions, use list concatenation:
 		  figFile.findObjects(depth = 10) + figFile.findObjects(depth = 20)
-		"""
+
+		The returned object is actually an ObjectProxy, which is a
+		special Container (which is a special python list) and allows
+		to quickly change properties on all contained objects.  See
+		the Container and ObjectProxy classes."""
 
 		result = ObjectProxy()
 		result.__dict__["parent"] = self
@@ -1115,14 +1129,32 @@ class Container(list):
 		return result
 
 	def layer(self, layer):
+		"""container.layer(layer) -> ObjectProxy
+
+		Returns an ObjectProxy for all objects within this container
+		that have the given depth; convenience shortcut for
+		findObjects(depth = layer)."""
+		
 		return self.findObjects(depth = layer)
 
 	def layers(self):
+		"""container.layers() -> list
+
+		Returns the list of all integer depths that are assigned to at
+		least one object within this container."""
+		
 		result = dict.fromkeys([ob.depth for ob in self.allObjects()]).keys()
 		result.sort()
 		return result
 
 	def remove(self, object):
+		"""container.remove(object)
+
+		Removes the given object from this Container.  Also works
+		recursively for objects within Compounds within this
+		Container.  Raises a ValueError if the object is not
+		contained."""
+		
 		try:
 			list.remove(self, object)
 		except ValueError:
@@ -1133,8 +1165,24 @@ class Container(list):
 						return
 					except ValueError:
 						pass
+			raise ValueError("remove(): Given object not found in Container.")
 
 class ObjectProxy(Container):
+	"""An ObjectProxy is a special Container that is used for search
+	results (see Container.findObjects) which offers two additional
+	features:
+
+	* remove(): Use like foo.findObjects(type = fig.PolyLine).remove()
+
+	  Removes all objects within this object proxy from the parent
+      container (the one findObjects was called on).
+
+	* settings attributes: foo.findObjects(type = fig.PolyLine).lineWidth = 4
+
+	  Setting an attribute is promoted to all contained objects which
+	  have that attribute.  (E.g. setting fontAngle will affect only
+	  Text objects.)"""
+	
 	def __setattr__(self, key, value):
 		for ob in self:
 			if hasattr(ob, key):
@@ -1473,7 +1521,9 @@ class File(Container):
 # --------------------------------------------------------------------
 
 if __name__ == "__main__":
-	print str(File(sys.argv[1])),
+	#print str(File(sys.argv[1])),
+	import doctest
+	doctest.testfile('index.rst')
 
 # FIGPY=../Diplomarbeit/Text/Figures/Sources/fig.py
 # SED='sed s,\.0\+,,g'; for i in *.fig; do python $FIGPY $i | $SED > /tmp/foo && $SED $i | diff -ubd - /tmp/foo; done
