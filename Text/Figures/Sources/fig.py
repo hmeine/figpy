@@ -622,7 +622,7 @@ class PolylineBase(Object):
 		self.pictureFilename = None
 		self.flipped = False
 
-	def changeType(self, polylineType):
+	def changeType(self, polylineType, retainPoints = False):
 		wasClosed = None
 		if type(self) != PolylineBase:
 			wasClosed = self.closed()
@@ -636,9 +636,15 @@ class PolylineBase(Object):
 			self.__class__ = ArcBox
 		if polylineType == ptPictureBBox:
 			self.__class__ = PictureBBox
-		if wasClosed == False and self.closed() and len(self.points) > 1:
+		if retainPoints or wasClosed == None:
+			return
+		if wasClosed == self.closed() or len(self.points) < 2:
+			return
+		if not wasClosed:
 			if self.points[-1] == self.points[0]:
 				del self.points[-1]
+		else:
+			self.points.append(self.points[0])
 
 	def __str__(self):
 		pointCount = len(self.points)
