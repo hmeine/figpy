@@ -717,7 +717,8 @@ class PolylineBase(Object):
 
 def _readPolylineBase(params):
 	result = PolylineBase()
-	result.changeType(int(params[0]))
+	# retainPoints is not actually necessary for PolylineBase objects:
+	result.changeType(int(params[0]), retainPoints = True)
 	result.lineStyle = int(params[1])
 	result.lineWidth = int(params[2])
 	result.penColor = int(params[3])
@@ -777,7 +778,7 @@ class Polygon(PolylineBase):
 		PolylineBase.__init__(self)
 		self.points = points
 		if not closed:
-			self.changeType(ptPolyline)
+			self.changeType(ptPolyline, retainPoints = True)
 
 	def polylineType(self):
 		return ptPolygon
