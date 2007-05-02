@@ -1265,8 +1265,9 @@ class File(Container):
 						elif objectType == figSpline:
 							currentObject, subLineExpected = _readSplineBase(params[1:])
 						elif objectType == figText:
+							assert line[-4:] == "\\001"
 							currentObject, subLineExpected = _readText(
-								params[1:], re.split(" +", line, 13)[-1][:-4])
+								params[1:], line.split(" ", 13)[-1][:-4])
 						elif objectType == figEllipse:
 							currentObject, subLineExpected = _readEllipseBase(params[1:])
 						elif objectType == figCompoundBegin:
@@ -1516,7 +1517,9 @@ if __name__ == "__main__":
 		def normalize(text):
 			result = []
 			for line in text.split("\n"):
-				result.append(re.sub(r"0*\b", "", line.strip()))
+				if line and line[0] == "#": continue
+				# canonical float representation:
+				result.append(re.sub(r"(\.[0-9]+?)0*\b", r"\1", line.strip()))
 			return result
 		
 		import difflib, re
@@ -1551,5 +1554,3 @@ if __name__ == "__main__":
 # - pull common code from SplineBase and PolylineBase into common base class
 # - clean up reading code (File could group lines based on whitespace prefixes)
 # - check shape factors of ApproximatedSpline / InterpolatedSpline
-# - common base class Container for Compounds, ObjectProxy and File
-#   (with allObjects, findObjects, layer, ...)
