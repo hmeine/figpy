@@ -382,6 +382,7 @@ class Object(object):
 	- joinStyle (see joinStyleXXX constants)
 	- capStyle (see capStyleXXX constants)
 	- forwardArrow/backwardArrow (Arrow objects)"""
+
 	def __init__(self):
 		self.lineStyle = lineStyleDefault
 		self.lineWidth = 1
@@ -1515,7 +1516,7 @@ class File(Container):
 # --------------------------------------------------------------------
 
 if __name__ == "__main__":
-	if sys.argv:
+	if len(sys.argv) > 1:
 		def normalize(text):
 			result = []
 			for line in text.split("\n"):
