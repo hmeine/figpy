@@ -814,21 +814,43 @@ class PictureBBox(PolyBox):
 # --------------------------------------------------------------------
 
 class SplineBase(Object):
-	def __init__(self):
+	def __init__(self, points = None, shapeFactors = None):
 		Object.__init__(self)
-		self.points = []
-		self.shapeFactors = []
-		self.closed = True
+		self.points = points or []
+		self.shapeFactors = shapeFactors or []
+		self._closed = None
+
+	def closed(self):
+		assert self._closed != None, "SplineBase.closed(): _closedness not initialized!"
+		return self._closed
+
+	def changeType(self, splineType):
+		if splineType == stOpenApproximated:
+			self.__class__ = ApproximatedSpline
+			self._closed = False
+		elif splineType == stClosedApproximated:
+			self.__class__ = ApproximatedSpline
+			self._closed = True
+		elif splineType == stOpenInterpolated:
+			self.__class__ = InterpolatedSpline
+			self._closed = False
+		elif splineType == stClosedInterpolated:
+			self.__class__ = InterpolatedSpline
+			self._closed = True
+		elif splineType == stOpenXSpline:
+			self.__class__ = XSpline
+			self._closed = False
+		elif splineType == stClosedXSpline:
+			self.__class__ = XSpline
+			self._closed = True
 
 	def __str__(self):
 		pointCount = len(self.points)
-		if self.closed:
-			pointCount += 1
 
 		hasForwardArrow = (self.forwardArrow != None and 1 or 0)
 		hasBackwardArrow = (self.backwardArrow != None and 1 or 0)
 
-		result = _join(figSpline, self.subType,
+		result = _join(figSpline, self.splineType(),
 					   self.lineStyle, self.lineWidth,
 					   self.penColor, self.fillColor,
 					   self.depth, self.penStyle,
@@ -843,19 +865,15 @@ class SplineBase(Object):
 		i = self._savePointIter()
 		for linePoints in map(None, *(i, )*12):
 			result += "\t" + _join(*[p for p in linePoints if p != None]) + "\n"
-		sfStrs = [str(sf) for sf in self.shapeFactors]
-		if self.closed:
-			sfStrs.append(sfStrs[0])
-		result += "\t " + " ".join(sfStrs)
-		return result + "\n"
+		i = iter(self.shapeFactors)
+		for lineSF in map(None, *(i, )*8):
+			result += "\t" + _join(*[str(sf) for sf in lineSF if sf != None]) + "\n"
+		return result
 
 	def _savePointIter(self):
 		for p in self.points:
 			yield p[0]
 			yield p[1]
-		if self.closed:
-			yield self.points[0][0]
-			yield self.points[0][1]
 
 	def bounds(self):
 		result = Rect()
@@ -872,7 +890,8 @@ class SplineBase(Object):
 			self.backwardArrow = Arrow(params)
 			return True
 
-		expectedPoints = (self._pointCount + (self.closed and 1 or 0))
+		expectedPoints = self._pointCount
+
 		if len(self.points) < expectedPoints:
 			pointCount = len(params) / 2
 			for pointIndex in range(pointCount):
@@ -894,37 +913,23 @@ class SplineBase(Object):
 			if moreToCome:
 				return True
 
-		if self.closed:
-			del self.points[-1]
-			del self.shapeFactors[-1]
 		return False
 
 class ApproximatedSpline(SplineBase):
-	pass
+	def splineType(self):
+		return self._closed and stClosedApproximated or stOpenApproximated
 
 class InterpolatedSpline(SplineBase):
-	pass
+	def splineType(self):
+		return self._closed and stClosedInterpolated or stOpenInterpolated
 
 class XSpline(SplineBase):
-	pass
+	def splineType(self):
+		return self._closed and stClosedXSpline or stOpenXSpline
 
 def _readSplineBase(params):
 	result = SplineBase()
-	result.subType = int(params[0])
-	if result.subType == stOpenApproximated:
-		result.__class__ = ApproximatedSpline
-		result.closed = False
-	elif result.subType == stClosedApproximated:
-		result.__class__ = ApproximatedSpline
-	elif result.subType == stOpenInterpolated:
-		result.__class__ = InterpolatedSpline
-		result.closed = False
-	elif result.subType == stClosedInterpolated:
-		result.__class__ = InterpolatedSpline
-	elif result.subType == stOpenXSpline:
-		result.__class__ = XSpline
-	elif result.subType == stClosedXSpline:
-		result.__class__ = XSpline
+	result.changeType(int(params[0]))
 	result.lineStyle = int(params[1])
 	result.lineWidth = int(params[2])
 	result.penColor = int(params[3])
@@ -943,8 +948,6 @@ def _readSplineBase(params):
 		subLines += 1
 	result._pointCount = int(params[12])
 	subLines += (result._pointCount+5)/6 # sublines to read for the points
-	if result.closed:
-		result._pointCount -= 1
 	return result, subLines
 
 # --------------------------------------------------------------------
@@ -1526,7 +1529,6 @@ if __name__ == "__main__":
 			for code, b1, e1, b2, e2 in sm.get_opcodes():
 				if code == 'equal':
 					continue
-				assert code == 'replace'
 				for li in range(b1, e1):
 					print "-", input[li]
 				for li in range(b2, e2):
@@ -1540,17 +1542,13 @@ if __name__ == "__main__":
 # SED='sed s,\.0\+,,g'; for i in *.fig; do python $FIGPY $i | $SED > /tmp/foo && $SED $i | diff -ubd - /tmp/foo; done
 
 # ATM, what's changing when loading/saving as above is:
-# - spline shape factors are put into one line (FIXME, see points)
 # - the bounding boxes of splines
 # - the bounding boxes of compounds
 # - some spacing (XFig starts lines with "\t ", I am purposely leaving the " " out)
 # - the display of floating point values (number of trailing zeros)
 
 # TODO:
-# - refactor Splines, too (subType stuff)
 # - pull common code from SplineBase and PolylineBase into common base class
-# - easy access to layers
-# - attribute trick for Compounds (and to-be-done Layer objects?!)
 # - clean up reading code (File could group lines based on whitespace prefixes)
 # - check shape factors of ApproximatedSpline / InterpolatedSpline
 # - common base class Container for Compounds, ObjectProxy and File
