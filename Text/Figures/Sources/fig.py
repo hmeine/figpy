@@ -1232,17 +1232,17 @@ class File(Container):
 					continue
 				#print line
 				if lineIndex == 0:
-					self.landscape = (line.startswith("Landscape"))
+					self.landscape = (line.lower().startswith("landscape"))
 				elif lineIndex == 1:
-					self.centered = (line.startswith("Center"))
+					self.centered = (line.lower().startswith("center"))
 				elif lineIndex == 2:
-					self.metric = (line.startswith("Metric"))
+					self.metric = (line.lower().startswith("metric"))
 				elif lineIndex == 3:
 					self.paperSize = line
 				elif lineIndex == 4:
 					self.magnification = float(line)
 				elif lineIndex == 5:
-					self.singlePage = (line.startswith("Single"))
+					self.singlePage = (line.lower().startswith("single"))
 				elif lineIndex == 6:
 					self.transparentColor = int(line)
 				elif lineIndex == 7:
