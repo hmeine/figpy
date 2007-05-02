@@ -3,7 +3,7 @@
 You can read fig files into an object 'f' with
   f = fig.File(filename) # or pass a file-like object"""
 
-_cvsVersion = "$Id$" \
+_version = "$Id$" \
               .split(" ")[2:-2]
 
 import sys, re, math, types, os, operator
