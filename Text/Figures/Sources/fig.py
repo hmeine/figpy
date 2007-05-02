@@ -375,11 +375,13 @@ class Object(object):
 	"""Base class of all fig objects, handles common properties like
 	- lineStyle (see lineStyleXXX constants)
 	- lineWidth (1/80th inch)
-	- styleValue (dash length / dot gap ratio) in 1/80th inches)
-	- penColor, fillColor, fillStyle
+	- styleValue (dash length / dot gap ratio), in 1/80th inches
+	- penColor, fillColor (see colorXXX constants)
+	- fillStyle (see fillStyleXXX constants)
 	- depth (0-999)
-	- joinStyle and capStyle
-	- forwardArrow/backwardArrow (the latter are Arrow objects)"""
+	- joinStyle (see joinStyleXXX constants)
+	- capStyle (see capStyleXXX constants)
+	- forwardArrow/backwardArrow (Arrow objects)"""
 	def __init__(self):
 		self.lineStyle = lineStyleDefault
 		self.lineWidth = 1
