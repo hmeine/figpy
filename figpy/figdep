@@ -1,0 +1,18 @@
+#!/usr/bin/env python
+import fig, sys, os
+
+generatedExts = [".eps", ".pdf"] # TODO: make configurable (cmdline)
+
+for filename in sys.argv[1:]:
+	included = []
+	for o in fig.File(filename).allObjects():
+		if type(o) == fig.PictureBBox:
+			included.append(o.pictureFilename)
+	if included:
+		for ext in generatedExts:
+			if not ext.startswith("."):
+				ext = "." + ext
+			print os.path.splitext(filename)[0] + ext + ": \\"
+			for dep in included:
+				print "\t" + dep + " \\"
+			print
