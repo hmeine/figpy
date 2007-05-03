@@ -1,0 +1,11 @@
+#!/usr/bin/env python
+import fig, sys
+
+args = sys.argv[1:]
+while args[0].startswith("-"):
+	sys.stderr.write("Warning: %s ignored.\n" % args[0])
+	args.pop()
+
+for fn in args:
+	f = fig.File(fn)
+	print fn, " ".join(map(str, f.layers()))

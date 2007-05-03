@@ -1,0 +1,135 @@
+#!/usr/bin/env python
+import fig, sys, re, os.path
+
+from optparse import OptionParser
+
+op = OptionParser(
+	usage = "%prog [options] <infile> <layers> [<layers> ...]",
+	description=
+	"""Extracts layers from XFig files.
+(The <layers> specifications may be for example '10-50', '30-', '1,25', ...)
+
+For each layer spec., an output file is saved with a -<number> postfix by default. (The reason being that the result can be used with [x]mpmulti.sty for easy LaTeX inclusion.)
+
+The input filename may be '-' for stdin, and if no output filename is given, the output will be sent to stdout.""")
+op.add_option("-v", "--verbose", action="store_true", default=True,
+			  dest="verbosity", help="verbose output (default)")
+op.add_option("-q", "--quiet", action="store_false",
+			  dest="verbosity", help="quite mode (only errors)")
+op.add_option("-1", action="store_false", default=True,
+			  dest="zeroBased", help="start numbering with 1 (default: 0)")
+op.add_option("-o", "--output", action="store", dest="filename",
+			  help="Output filename.  If more than one layer spec is given, must contain %d, which will be replaced by an index starting with 1.")
+options, args = op.parse_args()
+
+if len(args) < 2:
+	op.error("No file/layers given - nothing to do!")
+
+# --------------------------------------------------------------------
+# 					 setup filenames and logging
+# --------------------------------------------------------------------
+
+if options.verbosity:
+	log = sys.stdout
+else:
+	class DummyOut:
+		def write(*args):
+			pass
+		def flush(*args):
+			pass
+	
+	log = DummyOut()
+
+filename = args[0]
+specs = args[1:]
+
+outfileName = options.filename
+
+if filename == "-":
+	if not outfileName:
+		# output to stdout
+		if len(specs) > 1:
+			op.error("more than one spec cannot go to stdout! (use -o option?)\n")
+		if options.verbosity:
+			log = sys.stderr
+
+	filename = sys.stdin # constructor parameter for fig.File
+else:
+	basename, ext = os.path.splitext(filename)
+	if not outfileName:
+		outfileName = basename + "-%d" + ext
+
+# --------------------------------------------------------------------
+# 							 parse specs
+# --------------------------------------------------------------------
+
+re_specpart = re.compile("([0-9]*)(-?)([0-9]*)")
+
+def parseSpec(spec):
+	parts = spec.split(",")
+	result = []
+	for part in parts:
+		if not part: continue # support shell expansions like 10,20,{,21,22}
+		ma = re_specpart.match(part)
+		if not ma:
+			op.error("could not parse spec part '%s'!\n" % part)
+		if len(ma.group(2)):
+			s = None
+			if ma.group(1):
+				s = int(ma.group(1))
+			e = None
+			if ma.group(3):
+				e = int(ma.group(3))
+		else:
+			s = int(ma.group(1))
+			e = s
+		result.append((s, e))
+	return result
+
+def layerInSpec(layer, spec):
+	for s, e in spec:
+		if s == None:
+			if layer <= e:
+				return True
+		elif e == None:
+			if layer >= s:
+				return True
+		elif s <= layer and layer <= e:
+			return True
+	return False
+
+specs = map(parseSpec, specs)
+
+# --------------------------------------------------------------------
+# 				  copy fig objects to output file(s)
+# --------------------------------------------------------------------
+
+infig = fig.File(filename)
+
+i = 0
+if options.zeroBased:
+	i -= 1
+
+for spec in specs:
+	i += 1
+	log.write("spec %d: " % i)
+
+	outfig = fig.File()
+
+	for color in infig.colors:
+		outfig.append(color)
+
+	for object in infig.allObjects():
+		if layerInSpec(object.depth, spec):
+			outfig.append(object)
+			log.write(".")
+
+	log.write("\n")
+
+	if not outfileName:
+		sys.stdout.write(str(outfig))
+	else:
+		if outfileName.find("%d") >= 0:
+			outfig.save(outfileName % i)
+		else:
+			outfig.save(outfileName)

@@ -1,0 +1,53 @@
+#!/usr/bin/env python
+import sys, fig, re, getopt
+
+def usage(errcode = 1):
+	if errcode > 0:
+		sys.stdout.flush()
+		sys.stdout = sys.stderr
+	print "USAGE:"
+	print "     " + sys.argv[0] + " [options]"
+	print """
+where options are:
+  -h/--help:    this message
+  -v/--verbose: increase verbosity level
+  -q/--quiet:   output errors/warnings only
+
+  -d/--depth:   depth of target text (default: 50)
+  -o/--offset:  y offset of text lines (default: 120)"""
+	sys.exit(errcode)
+
+try:
+	opts, args = getopt.getopt(sys.argv[1:], "h?vqd:",
+							   ["help", "verbose", "quiet", "depth="])
+except getopt.GetoptError, e:
+	sys.stderr.write("ERROR: wrong parameter "+str(e))
+	usage(1)
+
+verbosity = 1
+targetDepth = 50
+yOffset = 120
+for o, a in opts:
+	if o in ("-?", "-h", "--help"):
+		usage(0)
+	if o in ("-q", "--quiet"):
+		verbosity = 0
+	if o in ("-v", "--verbose"):
+		verbosity += 1
+
+	if o in ("-d", "--depth"):
+		targetDepth = int(a)
+	if o in ("-o", "--offset"):
+		yOffset = int(a)
+
+f = fig.File()
+
+x = 0
+y = 0
+for text in sys.stdin.readlines():
+	to = fig.Text(x, y, text[:-1])
+	to.depth = targetDepth
+	f.append(to)
+	y += yOffset
+
+print str(f),
