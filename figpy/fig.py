@@ -1,6 +1,7 @@
 """'fig' module - object-oriented interface to XFig files.
 
-You can read fig files into an object 'f' with
+You can read fig files into an object 'f' with::
+
   f = fig.File(filename) # or pass a file-like object"""
 
 _version = "$Id$" \
@@ -373,6 +374,7 @@ class CustomColor(object):
 
 class Object(object):
 	"""Base class of all fig objects, handles common properties like
+	
 	- lineStyle (see lineStyleXXX constants)
 	- lineWidth (1/80th inch)
 	- styleValue (dash length / dot gap ratio), in 1/80th inches
@@ -415,6 +417,7 @@ class ArcBase(Object):
 		self.points = []
 
 	def changeType(self, arcType):
+		"Change type of this Arc. arcType may be one of atPie or atOpen"
 		if arcType == atPie:
 			self.__class__ = PieArc
 		else:
@@ -462,10 +465,12 @@ class ArcBase(Object):
 
 class PieArc(ArcBase):
 	def arcType(self):
+		"Return type of this Arc (atPie)."
 		return atPie
 
 class OpenArc(ArcBase):
 	def arcType(self):
+		"Return type of this Arc (atOpen)."
 		return atOpen
 
 def _readArcBase(params):
@@ -537,12 +542,24 @@ class EllipseBase(Object):
 				(self.center[1] + self.radius[1])))
 		return result
 
-	def setCenterRadius(self, center, radius):
-		self.center = center
-		self.radius = radius
+	def setRadius(self, radius):
+		"""Change radius.  `radius` may be either a tuple of x/y
+		radii, or a single radius, convertible to float(s)."""
+		if not isinstance(radius, tuple):
+			assert float(radius) != None, "radius must be either a tuple of x/y radii, or a single radius, convertible to float(s)"
+			self.radius = (radius, radius)
+		else:
+			assert len(radius) == 2 and float(radius[0]) != None and float(radius[1]) != None, "radius must be either a tuple of x/y radii, or a single radius, convertible to float(s)"
+			self.radius = radius
+		# FIXME: depend on ellipseType
 		self.start = self.center
 		self.end = (self.center[0] + radius[0],
 					self.center[1] + radius[1])
+
+	def setCenterRadius(self, center, radius):
+		"""Set center and radius, see `setRadius`."
+		self.center = center
+		self.setRadius(radius)
 
 def _readEllipseBase(params):
 	result = EllipseBase()
@@ -580,6 +597,7 @@ class Ellipse(EllipseBase):
 	def setStartEnd(self, start, end):
 		self.start = start
 		self.end = end
+		# FIXME: depend on ellipseType
 		self.center = ((start[0] + end[0])/2,
 					   (start[1] + end[1])/2)
 		self.radius = ((end[0] - self.center[0]),
@@ -603,6 +621,7 @@ class Circle(EllipseBase):
 	def setStartEnd(self, start, end):
 		self.start = start
 		self.end = end
+		# FIXME: depend on ellipseType
 		self.center = ((start[0] + end[0])/2,
 					   (start[1] + end[1])/2)
 		radius = int(round(math.hypot(end[0] - self.center[0],
@@ -1198,6 +1217,8 @@ def _readCompound(params):
 # --------------------------------------------------------------------
 
 class File(Container):
+	"""Main class of the `fig` module, represents an XFig document."""
+	
 	def __init__(self, inputFile = None):
 		Container.__init__(self)
 		self.colors = []
@@ -1294,7 +1315,7 @@ class File(Container):
 
 	def append(self, object):
 		"""Adds the object to this document, CustomColors are appended
-		to self.colors."""
+		to self.colors as if addColor() was called."""
 
 		if type(object) == CustomColor:
 			self.addColor(object)
@@ -1302,6 +1323,9 @@ class File(Container):
 			Container.append(self, object)
 
 	def addColor(self, hexCode):
+		"""Adds a custom color to this document.  hexCode may be
+		either a hex code like #ffee00 or a CustomColor instance."""
+		
 		if isinstance(hexCode, str):
 			result = CustomColor(colorCustom0 + len(self.colors), hexCode)
 		elif isinstance(hexCode, CustomColor):
@@ -1363,6 +1387,7 @@ class File(Container):
 
 	def colorRGB(self, color):
 		"""Returns a the R,G,B tuple for the given color index."""
+		
 		if color < 0:
 			return None
 		elif color < colorCustom0:
@@ -1371,13 +1396,16 @@ class File(Container):
 			return self.colors[color].rgb()
 
 	def gray(self, grayLevel):
-		"""Returns a color representing the given graylevel (see getColor).
-		grayLevel can be a float in the range 0.0 - 1.0 or a 0 - 255 integer."""
+		"""Returns a color representing the given graylevel (see
+		getColor).  grayLevel can be a float in the range 0.0 - 1.0 or
+		a 0 - 255 integer."""
+		
 		return self.getColor((grayLevel, grayLevel, grayLevel))
 
 	def headerStr(self):
 		"""Returns the first lines of the XFig file output, which contain
 		global document information like orientation / units / ..."""
+		
 		result = "#FIG 3.2\n"
 		if self.landscape:
 			result += "Landscape\n"
@@ -1423,7 +1451,7 @@ class File(Container):
 		"""figfile.save(filename = None)
 
 		Saves the contents of this file in the XFig file format to
-		the file 'filename'.  Equivalent to:
+		the file 'filename'.  Equivalent to::
 		
 		  file(filename, "w").write(str(figfile))
 
@@ -1444,21 +1472,21 @@ class File(Container):
 	def fig2dev(self, input = None, output = None, lang = "eps"):
 		"""figfile.fig2dev(input = None, output = None, lang = "eps")
 		
-		Calls fig2dev on the file 'input' to produce the file 'output'.
+		Calls fig2dev on the file `input` to produce the file `output`.
 		(Both default to the current figfile's filename and the same
-		filename with the extension changed to lang.)
-		Note that output must be a path *relative to the 'input' path*!
+		filename with the extension changed to `lang`.)
+		Note that `output` must be a path *relative to the `input` path*!
 		Returns the filename of the resulting file.
 
-		Usually, you just call sth. like
+		Usually, you just call sth. like ::
 
 		   figfile = fig.File("myfigfile.fig")
 		   ...
 		   figfile.save()
 		   figfile.fig2dev(lang = "pdf")
 
-		to produce myfigfile.pdf.  It is even easier is to use the
-		following convenient shortcut:
+		to produce myfigfile.pdf.  It is now even easier to use the
+		following convenience shortcut::
 
 		   figfile.save(fig2dev = "pdf")
 		"""
@@ -1495,11 +1523,12 @@ class File(Container):
 		"""Saves the contents of this file to [basename].fig and calls
 		fig2dev to create a [basename].eps, too.  The basename
 		(without either .fig or .eps!) is returned, so that you can
-		use expressions like:
+		use expressions like::
 
 		  resultBasename = figFile.saveEPS(namePrefix + "_%d" % index)
 
-		Furthermore, the basename defaults to figFile.filename without the .fig."""
+		Furthermore, the basename defaults to figFile.filename without
+		the .fig."""
 
 		if basename == None:
 			assert self.filename, "figfile.save[EPS]() needs a filename!"
