@@ -231,9 +231,10 @@ _re_size = re.compile("([0-9]+)x([0-9]+)")
 _re_geometry = re.compile("([0-9]+)[:,]([0-9]+)([+-:,])([0-9]+)([x:,])([0-9]+)")
 
 def parseSize(sizeStr):
-	"""Convenience function for parsing size strings into tuples:
-	>>> fig.parseSize('640x480')
-	(640, 480)"""
+	"""Convenience function for parsing size strings into tuples::
+	
+	  >>> fig.parseSize('640x480')
+	  (640, 480)"""
 	ma = _re_size.match(sizeStr)
 	if ma:
 		w = int(ma.group(1))
@@ -241,6 +242,19 @@ def parseSize(sizeStr):
 		return (w, h)
 
 def parseGeometry(geometryString):
+	"""Convenience function for parsing geometry strings of various
+	formats::
+	
+	  >>> fig.parseGeometry("320,240-640,480")
+	  fig.Rect(320,240,640,480)
+	  >>> fig.parseGeometry("50,50+50,50")
+	  fig.Rect(50,50,100,100)
+	  >>> fig.parseGeometry("40,40,320,240")
+	  fig.Rect(40,40,320,240)
+	  >>> r = fig.Rect(0,0,320,240)
+	  >>> fig.parseGeometry(str(r)) == r
+	  True
+	"""
 	ma = _re_geometry.match(geometryString)
 	if ma:
 		x1 = int(ma.group(1))
@@ -248,6 +262,7 @@ def parseGeometry(geometryString):
 		vx2 = int(ma.group(4))
 		vy2 = int(ma.group(6))
 		if ma.group(3) == "+" or ma.group(5) == "x":
+			assert ma.group(3) != "-", "invalid geometry string format 'X,Y-WxH': %s (use either x1,y2-x2,y2 *or* x1,y1+WxH)" % geometryString
 			return Rect(x1, y1, x1+vx2, y1+vy2)
 		else:
 			return Rect(x1, y1, vx2, vy2)
@@ -255,11 +270,11 @@ def parseGeometry(geometryString):
 class Rect(object):
 	"""This is a simple, half-internal helper class for handling
 	Rectangles (e.g. used for bounding boxes).  If you are looking for
-	a rectangular figure object, PolyBox is your friend.
+	a rectangular figure object, `PolyBox` is your friend.
 
-	A Rect object has the properties x1, x2, y1, y2 carrying the
-	coordinates, and accessor functions width(), height(),
-	upperLeft(), lowerRight(), size().  (The latter return pairs of
+	A Rect object has the properties `x1`, `x2`, `y1`, `y2` carrying the
+	coordinates, and accessor functions `width()`, `height()`,
+	`upperLeft()`, `lowerRight()`, `size()`.  (The latter return pairs of
 	coordinates.)
 
 	A special facility is the __call__ operator for adding
@@ -316,8 +331,21 @@ class Rect(object):
 	def __repr__(self):
 		return "fig.Rect(%d,%d,%d,%d)" % (self.x1, self.y1, self.x2, self.y2)
 	
+	def __str__(self):
+		return "%d,%d-%d,%d" % (self.x1, self.y1, self.x2, self.y2)
+
+	def __eq__(self, other):
+		if type(other) != Rect:
+			return False
+		return str(self) == str(other)
+	
+	def __ne__(self, other):
+		if type(other) == Rect:
+			return False
+		return str(self) != str(other)
+	
 	def __iter__(self):
-		"""Make Rect objects assignable like:
+		"""Make Rect objects assignable like::
 		x1, y1, x2, y2 = someRect"""
 		yield self.x1
 		yield self.y1
@@ -375,14 +403,14 @@ class CustomColor(object):
 class Object(object):
 	"""Base class of all fig objects, handles common properties like
 	
-	- lineStyle (see lineStyleXXX constants)
+	- lineStyle (see `lineStyleXXX` constants)
 	- lineWidth (1/80th inch)
 	- styleValue (dash length / dot gap ratio), in 1/80th inches
-	- penColor, fillColor (see colorXXX constants)
-	- fillStyle (see fillStyleXXX constants)
+	- penColor, fillColor (see `colorXXX` constants)
+	- fillStyle (see `fillStyleXXX` constants)
 	- depth (0-999)
-	- joinStyle (see joinStyleXXX constants)
-	- capStyle (see capStyleXXX constants)
+	- joinStyle (see `joinStyleXXX` constants)
+	- capStyle (see `capStyleXXX` constants)
 	- forwardArrow/backwardArrow (Arrow objects)"""
 
 	def __init__(self):
@@ -505,6 +533,8 @@ def _readArcBase(params):
 # --------------------------------------------------------------------
 
 class EllipseBase(Object):
+	"""Base class of Ellipse-like objects (`Ellipse`, `Circle`)."""
+	
 	def __init__(self):
 		Object.__init__(self)
 		self.angle = 0.0
@@ -514,6 +544,17 @@ class EllipseBase(Object):
 		self.end = (0, 0)
 
 	def changeType(self, ellipseType):
+		"""Change type of this Ellipse object.  `ellipseType` may be one
+		of the `etXXX` constants:
+
+		- etEllipseRadii
+		- etEllipseDiameter
+		- etCircleRadius
+		- etCircleDiameter
+
+		This method may change the type of this object to another
+		`EllipseBase`-derived class."""
+
 		if ellipseType in (etEllipseRadii, etEllipseDiameter):
 			self.__class__ = Ellipse
 		elif ellipseType in (etCircleRadius, etCircleDiameter):
@@ -638,6 +679,9 @@ class Circle(EllipseBase):
 # --------------------------------------------------------------------
 
 class PolylineBase(Object):
+	"""Base class of Polygon-like objects (`Polygon`,
+	`PolyLine`, `PictureBBox`)."""
+	
 	def __init__(self):
 		Object.__init__(self)
 		self.points = []
@@ -768,6 +812,8 @@ def _readPolylineBase(params):
 	return result, subLines
 
 class PolyBox(PolylineBase):
+	"""Represents a rectangular closed box object."""
+	
 	def __init__(self, x1, y1, x2, y2):
 		PolylineBase.__init__(self)
 		self.points.append((x1, y1))
@@ -779,6 +825,8 @@ class PolyBox(PolylineBase):
 		return ptBox
 
 	def closed(self):
+		"""Returns whether this polygon is closed (True for all
+		`PolyBox` objects.)"""
 		return True
 
 	def center(self):
@@ -792,10 +840,14 @@ class PolyBox(PolylineBase):
 		return abs(self.points[2][1] - self.points[0][1])
 
 class ArcBox(PolyBox):
+	"""Represents a rectangular box with rounded corners."""
+	
 	def polylineType(self):
 		return ptArcBox
 
 class Polygon(PolylineBase):
+	"""Represents a closed polygon object."""
+	
 	def __init__(self, points, closed = True):
 		PolylineBase.__init__(self)
 		self.points = points
@@ -806,9 +858,13 @@ class Polygon(PolylineBase):
 		return ptPolygon
 
 	def closed(self):
+		"""Returns whether this polygon is closed (True for all
+		`Polygon` objects.)"""
 		return True
 
 class PolyLine(PolylineBase):
+	"""Represents an open polygon object."""
+	
 	def __init__(self, *points):
 		PolylineBase.__init__(self)
 		self.points = points
@@ -817,9 +873,14 @@ class PolyLine(PolylineBase):
 		return ptPolyline
 
 	def closed(self):
+		"""Returns whether this polygon is closed (False for all
+		`Polygon` objects.)"""
 		return False
 
 class PictureBBox(PolyBox):
+	"""Represents a picture embedded in an XFig file.  The filename is
+	stored in the `pictureFilename` attribute."""
+	
 	def __init__(self, x1, y1, x2, y2, filename, flipped = False):
 		PolyBox.__init__(self, x1, y1, x2, y2)
 		self.pictureFilename = filename
@@ -829,6 +890,8 @@ class PictureBBox(PolyBox):
 		return ptPictureBBox
 
 	def closed(self):
+		"""Returns whether this polygon is closed (True for all
+		`PictureBBox` objects.)"""
 		return True
 
 # --------------------------------------------------------------------
@@ -836,6 +899,9 @@ class PictureBBox(PolyBox):
 # --------------------------------------------------------------------
 
 class SplineBase(Object):
+	"""Base class of Spline objects (`ApproximatedSpline`,
+	`InterpolatedSpline`, `XSpline`)."""
+	
 	def __init__(self, points = None, shapeFactors = None):
 		Object.__init__(self)
 		self.points = points or []
@@ -843,10 +909,24 @@ class SplineBase(Object):
 		self._closed = None
 
 	def closed(self):
+		"""Returns whether this spline curve is closed."""
 		assert self._closed != None, "SplineBase.closed(): _closedness not initialized!"
 		return self._closed
 
 	def changeType(self, splineType):
+		"""Change type of this Spline object.  `splineType` may be one
+		of the `stXXX` constants:
+
+		- stOpenApproximated
+		- stClosedApproximated
+		- stOpenInterpolated
+		- stClosedInterpolated
+		- stOpenXSpline
+		- stClosedXSpline
+
+		This method may change the type of this object to another
+		`SplineBase`-derived class."""
+
 		if splineType == stOpenApproximated:
 			self.__class__ = ApproximatedSpline
 			self._closed = False
@@ -898,6 +978,10 @@ class SplineBase(Object):
 			yield p[1]
 
 	def bounds(self):
+		"""Returns the bounds of this object.  This is not accurate at
+		all, since it simply returns the bounding box of the support
+		points, but the curve may well run outside of that box."""
+		# FIXME
 		result = Rect()
 		for point in self.points:
 			result(point)
