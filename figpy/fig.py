@@ -1,6 +1,6 @@
 """'fig' module - object-oriented interface to XFig files.
 
-You can read fig files into an object 'f' with::
+You can read fig files into a `File` object 'f' with::
 
   import fig
   f = fig.File(filename) # or pass a file-like object
@@ -417,7 +417,7 @@ class Object(object):
 	- depth (0-999)
 	- joinStyle (see `joinStyleXXX` constants)
 	- capStyle (see `capStyleXXX` constants)
-	- forwardArrow/backwardArrow (Arrow objects)"""
+	- forwardArrow/backwardArrow (`Arrow` objects)"""
 
 	def __init__(self):
 		self.lineStyle = lineStyleDefault
@@ -435,6 +435,13 @@ class Object(object):
 		self.backwardArrow = None
 
 class Arrow(object):
+	"""Arrow objects store arrow parameters of other objects.
+	Instances of this class are usually assigned to the
+	`forwardArrow`/`backwardArrow` properties of `fig.Object`.
+
+	FIXME: This class is still a stub that stores all parameters in a
+	single attribute 'params'."""
+	
 	def __init__(self, params):
 		self.params = params
 
@@ -633,6 +640,10 @@ def _readEllipseBase(params):
 	return result, 0
 
 class Ellipse(EllipseBase):
+	"""Represents an ellipse object.  Ellipse objects have an
+	attribute `radius` that is a tuple of two radii in x- and
+	y-direction."""
+	
 	def __init__(self, center = None, radii = None,
 				 start = None, end = None):
 		EllipseBase.__init__(self)
@@ -660,6 +671,9 @@ class Ellipse(EllipseBase):
 					   (end[1] - self.center[1]))
 
 class Circle(EllipseBase):
+	"""Represents a circle object.  Circle objects have an
+	attribute `radius` that is a single float."""
+	
 	def __init__(self, center = None, radius = None,
 				 start = None, end = None):
 		EllipseBase.__init__(self)
@@ -1075,14 +1089,20 @@ class SplineBase(Object):
 		return False
 
 class ApproximatedSpline(SplineBase):
+	"""Represents an open or closed approximated spline object."""
+	
 	def splineType(self):
 		return self._closed and stClosedApproximated or stOpenApproximated
 
 class InterpolatedSpline(SplineBase):
+	"""Represents an open or closed interpolated spline object."""
+	
 	def splineType(self):
 		return self._closed and stClosedInterpolated or stOpenInterpolated
 
 class XSpline(SplineBase):
+	"""Represents an open or closed 'x-spline' object."""
+	
 	def splineType(self):
 		return self._closed and stClosedXSpline or stOpenXSpline
 
@@ -1114,6 +1134,19 @@ def _readSplineBase(params):
 # --------------------------------------------------------------------
 
 class Text(Object):
+	"""Represents a text object.  Text instances have a number of
+	extra attributes:
+
+	- text (the string)
+	- x, y (position)
+	- alignment (cf. `alignXXX` constants)
+	- font (cf. fontXXX constants)
+	- fontSize (defailt: 12)
+	- fontAngle (default: 0.0)
+	- fontFlags (cf. `ffXXX` constants, default: ffPostScript)
+	- length, height (dummy values, no guarantee about correctness)
+	"""
+
 	def __init__(self, x, y, text, alignment = alignLeft):
 		Object.__init__(self)
 		self.text = text
@@ -1125,23 +1158,23 @@ class Text(Object):
 		self.length = 100 # dummy value
 		self.x = x
 		self.y = y
-		self.subType = alignment
+		self.alignment = alignment
 
 	def bounds(self):
 		result = Rect()
-		if self.subType == alignLeft:
+		if self.alignment == alignLeft:
 			result((self.x,               self.y - self.height))
 			result((self.x + self.length, self.y))
-		elif self.subType == alignCentered:
+		elif self.alignment == alignCentered:
 			result((self.x - self.length/2, self.y - self.height))
 			result((self.x + self.length/2, self.y))
-		elif self.subType == alignRight:
+		elif self.alignment == alignRight:
 			result((self.x,               self.y - self.height))
 			result((self.x + self.length, self.y))
 		return result
 
 	def __str__(self):
-		result = _join(figText, self.subType,
+		result = _join(figText, self.alignment,
 					   self.penColor, self.depth, self.penStyle,
 					   self.font, self.fontSize, str(self.fontAngle), self.fontFlags,
 					   self.height, self.length, self.x, self.y,
@@ -1212,7 +1245,7 @@ class Container(list):
 	def findObjects(self, **kwargs):
 		"""Returns a list of objects which have attribute/value pairs
 		matching the given keyword parameters.  The key "type" is
-		treated special, see these useful examples:
+		treated special, see these useful examples::
 
 		  figFile.findObjects(depth = 40)
 		  figFile.findObjects(type = fig.Polygon)
@@ -1247,7 +1280,7 @@ class Container(list):
 
 		Returns an `ObjectProxy` for all objects within this container
 		that have the given depth; convenience shortcut for
-		findObjects(depth = layer)."""
+		``findObjects(depth = layer)``."""
 		
 		return self.findObjects(depth = layer)
 
@@ -1261,21 +1294,21 @@ class Container(list):
 		result.sort()
 		return result
 
-	def remove(self, object):
-		"""container.remove(object)
+	def remove(self, obj):
+		"""container.remove(obj)
 
 		Removes the given object from this `Container`.  Also works
 		recursively for objects within `Compound` objects within this
-		`Container`.  Raises a ValueError if the object is not
+		`Container`.  Raises a ValueError if `obj` is not
 		contained."""
 		
 		try:
-			list.remove(self, object)
+			list.remove(self, obj)
 		except ValueError:
 			for o in self:
 				if type(o) == Compound:
 					try:
-						o.remove(object)
+						o.remove(obj)
 						return
 					except ValueError:
 						pass
@@ -1455,8 +1488,9 @@ class File(Container):
 				lineIndex += 1
 
 	def append(self, object):
-		"""Adds the object to this document, CustomColors are appended
-		to self.colors as if addColor() was called."""
+		"""Adds the object to this document.  `object` is supposed to
+		be a `fig.Object`-derived object.  `CustomColor` objects are
+		appended to self.colors as if `addColor()` was called."""
 
 		if type(object) == CustomColor:
 			self.addColor(object)
@@ -1481,16 +1515,25 @@ class File(Container):
 	def getColor(self, color, similarity = None):
 		"""Returns a color object for the given color, adding a new
 		custom color to this document if it does not yet exist.  The
-		color can be given as tuple of 0..255 values for R,G,B or as
-		hex string (e.g. (0, 255, 0) or '#00ff00' for green).
+		color can be given as tuple of R,G,B values or as hex string
+		(e.g. (0, 255, 0) or '#00ff00' for green).  The range of valid
+		R,G,B values depends on the type: integer values are expected
+		to be in the range 0..255, while float values are interpreted
+		as percentage values in the closed interval [0.0, 1.0].
 
-		If the optional parameter 'similarity' is > 0.0, getColor()
+		If a `CustomColor` object with the given color is already
+		present, it will be returned.  Otherwise, `addColor` will be
+		called, and the new object is returned.
+
+		If the optional parameter `similarity` is > 0.0, getColor()
 		will return the first color found whose RGB difference's
-		magnitude is < similarity, if any (otherwise, it will call
-		addColor(), exactly as if similarity was not used).
+		magnitude is < `similarity`, if any (otherwise, it will call
+		`addColor()`, exactly as if similarity was not used).  This is
+		useful if you expect many thousands of slightly different
+		colors, which are not supported by XFig.
 
-		If similarity is given, but not > 0.0, addColor() will not be
-		called, but a KeyError will be raised, if the exact color
+		If `similarity` is given, but not > 0.0, `addColor()` will not be
+		called, but a `KeyError` will be raised, if the exact color
 		cannot be returned."""
 
 		inputGiven = color
@@ -1526,15 +1569,15 @@ class File(Container):
 						return bestColor
 			return self.addColor(color)
 
-	def colorRGB(self, color):
+	def colorRGB(self, colorIndex):
 		"""Returns a the R,G,B tuple for the given color index."""
 		
-		if color < 0:
-			return None
-		elif color < colorCustom0:
-			return standardColors[color]
+		assert colorIndex >= 0 and colorIndex < colorCustom0 + len(self.colors), \
+			   "invalid color index"
+		if colorIndex < colorCustom0:
+			return standardColors[colorIndex]
 		else:
-			return self.colors[color].rgb()
+			return self.colors[colorIndex - colorCustom0].rgb()
 
 	def gray(self, grayLevel):
 		"""Returns a color representing the given graylevel (see
