@@ -2,7 +2,10 @@
 
 You can read fig files into an object 'f' with::
 
-  f = fig.File(filename) # or pass a file-like object"""
+  import fig
+  f = fig.File(filename) # or pass a file-like object
+
+:author: Hans Meine <hans_meine@gmx.net>"""
 
 _version = "$Id$" \
 			  .split(" ")[2:-2]
@@ -234,7 +237,8 @@ def parseSize(sizeStr):
 	"""Convenience function for parsing size strings into tuples::
 	
 	  >>> fig.parseSize('640x480')
-	  (640, 480)"""
+	  (640, 480)
+	"""
 	ma = _re_size.match(sizeStr)
 	if ma:
 		w = int(ma.group(1))
@@ -244,7 +248,9 @@ def parseSize(sizeStr):
 def parseGeometry(geometryString):
 	"""Convenience function for parsing geometry strings of various
 	formats::
-	
+
+	  # python
+	  >>> import fig
 	  >>> fig.parseGeometry("320,240-640,480")
 	  fig.Rect(320,240,640,480)
 	  >>> fig.parseGeometry("50,50+50,50")
@@ -440,6 +446,8 @@ class Arrow(object):
 # --------------------------------------------------------------------
 
 class ArcBase(Object):
+	"""Base class of Arc-like objects (`PieArc`, `OpenArc`)."""
+		
 	def __init__(self):
 		Object.__init__(self)
 		self.points = []
@@ -492,13 +500,17 @@ class ArcBase(Object):
 		return False
 
 class PieArc(ArcBase):
+	"""Represents a closed arc object."""
+	
 	def arcType(self):
-		"Return type of this Arc (atPie)."
+		"Return type of this Arc (atPie), see `changeType`."
 		return atPie
 
 class OpenArc(ArcBase):
+	"""Represents an open arc object."""
+
 	def arcType(self):
-		"Return type of this Arc (atOpen)."
+		"Return type of this Arc (atOpen), see `changeType`."
 		return atOpen
 
 def _readArcBase(params):
@@ -630,6 +642,9 @@ class Ellipse(EllipseBase):
 			self.setStartEnd(start, end)
 
 	def ellipseType(self):
+		"""Returns type of this ellipse (one of etEllipseRadii,
+		etEllipseDiameter for `Ellipse` objects), see `changeType`."""
+
 		if self.center == self.start:
 			return etEllipseRadii
 		else:
@@ -654,6 +669,9 @@ class Circle(EllipseBase):
 			self.setStartEnd(start, end)
 
 	def ellipseType(self):
+		"""Returns type of this ellipse (one of etCircleRadius,
+		etCircleDiameter for `Circle` objects), see `changeType`."""
+
 		if self.center == self.start:
 			return etCircleRadius
 		else:
@@ -680,7 +698,7 @@ class Circle(EllipseBase):
 
 class PolylineBase(Object):
 	"""Base class of Polygon-like objects (`Polygon`,
-	`PolyLine`, `PictureBBox`)."""
+	`Polyline`, `PictureBBox`)."""
 	
 	def __init__(self):
 		Object.__init__(self)
@@ -689,11 +707,27 @@ class PolylineBase(Object):
 		self.flipped = False
 
 	def changeType(self, polylineType, retainPoints = False):
+		"""Change type of this Polyline object.  `polylineType` may be one
+		of the `ptXXX` constants:
+
+		- ptPolyline
+		- ptBox
+		- ptPolygon
+		- ptArcBox
+		- ptPictureBBox
+
+		This method may change the type of this object to another
+		`PolylineBase`-derived class.
+
+		If `retainPoints` is not set to True, this function will
+		add/remove the last point such that closed polygons do not
+		have the first point repeated at the end."""
+
 		wasClosed = None
 		if type(self) != PolylineBase:
 			wasClosed = self.closed()
 		if polylineType == ptPolyline:
-			self.__class__ = PolyLine
+			self.__class__ = Polyline
 		if polylineType == ptBox:
 			self.__class__ = PolyBox
 		if polylineType == ptPolygon:
@@ -822,6 +856,9 @@ class PolyBox(PolylineBase):
 		self.points.append((x1, y2))
 
 	def polylineType(self):
+		"""Returns type of this polygon (ptBox for all `PolyBox` objects),
+		see `changeType`."""
+
 		return ptBox
 
 	def closed(self):
@@ -830,19 +867,25 @@ class PolyBox(PolylineBase):
 		return True
 
 	def center(self):
+		"""Returns (x, y) coordinate tuple of the midpoint of this box."""
 		return ((self.points[0][0] + self.points[2][0])/2,
 				(self.points[0][1] + self.points[2][1])/2)
 
 	def width(self):
+		"""Returns width of this box."""
 		return abs(self.points[2][0] - self.points[0][0])
 
 	def height(self):
+		"""Returns height of this box."""
 		return abs(self.points[2][1] - self.points[0][1])
 
 class ArcBox(PolyBox):
 	"""Represents a rectangular box with rounded corners."""
 	
 	def polylineType(self):
+		"""Returns type of this polygon (ptArcBox for all `ArcBox` objects),
+		see `changeType`."""
+
 		return ptArcBox
 
 class Polygon(PolylineBase):
@@ -855,6 +898,9 @@ class Polygon(PolylineBase):
 			self.changeType(ptPolyline, retainPoints = True)
 
 	def polylineType(self):
+		"""Returns type of this polygon (ptPolygon for all `Polygon` objects),
+		see `changeType`."""
+
 		return ptPolygon
 
 	def closed(self):
@@ -862,7 +908,7 @@ class Polygon(PolylineBase):
 		`Polygon` objects.)"""
 		return True
 
-class PolyLine(PolylineBase):
+class Polyline(PolylineBase):
 	"""Represents an open polygon object."""
 	
 	def __init__(self, *points):
@@ -870,11 +916,15 @@ class PolyLine(PolylineBase):
 		self.points = points
 
 	def polylineType(self):
+		"""Returns type of this polygon (ptPolyline for all `Polyline`
+		objects), see `changeType`."""
+
 		return ptPolyline
 
 	def closed(self):
 		"""Returns whether this polygon is closed (False for all
 		`Polygon` objects.)"""
+
 		return False
 
 class PictureBBox(PolyBox):
@@ -887,6 +937,9 @@ class PictureBBox(PolyBox):
 		self.flipped = flipped
 
 	def polylineType(self):
+		"""Returns type of this polygon (ptPictureBBox for all
+		`PictureBBox` objects), see `changeType`."""
+
 		return ptPictureBBox
 
 	def closed(self):
@@ -1234,13 +1287,13 @@ class ObjectProxy(Container):
 	features:
 
 	remove():
-	  Use like ``foo.findObjects(type = fig.PolyLine).remove()``
+	  Use like ``foo.findObjects(type = fig.Polyline).remove()``
 
 	  Removes all objects within this object proxy from the parent
 	  container (the one `findObjects` was called on).
 
 	setting attributes:
-	  ``foo.findObjects(type = fig.PolyLine).lineWidth = 4``
+	  ``foo.findObjects(type = fig.Polyline).lineWidth = 4``
 
 	  Setting an attribute is promoted to all contained objects which
 	  have that attribute.  (E.g. setting fontAngle will affect only
