@@ -5,7 +5,7 @@ You can read fig files into an object 'f' with::
   f = fig.File(filename) # or pass a file-like object"""
 
 _version = "$Id$" \
-              .split(" ")[2:-2]
+			  .split(" ")[2:-2]
 
 import sys, re, math, types, os, operator
 
@@ -213,7 +213,7 @@ paperSizes = ["Letter", "Legal", "Ledger", "Tabloid",
 			  "A4", "A3", "A2", "A1", "A0", "B5"]
 
 # --------------------------------------------------------------------
-# 							   helpers
+#                              helpers
 # --------------------------------------------------------------------
 
 def _join(*sequence):
@@ -325,7 +325,7 @@ class Rect(object):
 		yield self.y2
 
 # --------------------------------------------------------------------
-# 							 DOM objects
+#                            DOM objects
 # --------------------------------------------------------------------
 
 class CustomColor(object):
@@ -408,7 +408,7 @@ class Arrow(object):
 		return _join(*self.params) + "\n"
 
 # --------------------------------------------------------------------
-# 								 arcs
+#                                arcs
 # --------------------------------------------------------------------
 
 class ArcBase(Object):
@@ -501,7 +501,7 @@ def _readArcBase(params):
 	return result, subLines
 
 # --------------------------------------------------------------------
-# 							   ellipses
+#                              ellipses
 # --------------------------------------------------------------------
 
 class EllipseBase(Object):
@@ -557,7 +557,7 @@ class EllipseBase(Object):
 					self.center[1] + radius[1])
 
 	def setCenterRadius(self, center, radius):
-		"""Set center and radius, see `setRadius`."
+		"""Set center and radius, see `setRadius`."""
 		self.center = center
 		self.setRadius(radius)
 
@@ -634,7 +634,7 @@ class Circle(EllipseBase):
 		return EllipseBase.__str__(self)
 
 # --------------------------------------------------------------------
-# 							  polylines
+#                             polylines
 # --------------------------------------------------------------------
 
 class PolylineBase(Object):
@@ -832,7 +832,7 @@ class PictureBBox(PolyBox):
 		return True
 
 # --------------------------------------------------------------------
-# 							   splines
+#                              splines
 # --------------------------------------------------------------------
 
 class SplineBase(Object):
@@ -973,7 +973,7 @@ def _readSplineBase(params):
 	return result, subLines
 
 # --------------------------------------------------------------------
-# 							 text objects
+#                            text objects
 # --------------------------------------------------------------------
 
 class Text(Object):
@@ -1027,11 +1027,11 @@ def _readText(params, text):
 	return result, 0
 
 # --------------------------------------------------------------------
-# 			   Container and ObjectProxy utility classes
+#              Container and ObjectProxy utility classes
 # --------------------------------------------------------------------
 
 class _AllObjectIter(object):
-	"helper class, see Container.allObjects()"
+	"helper class, see `Container.allObjects`"
 	
 	def __init__(self, container, includeCompounds):
 		self.file = file
@@ -1058,8 +1058,8 @@ class _AllObjectIter(object):
 
 class Container(list):
 	"""Container for fig objects, derived from the standard python
-	list.  This is the common subclass of File (for the whole
-	document) and ObjectProxy (for search results, see findObjects()
+	list.  This is the common subclass of `File` (for the whole
+	document) and `ObjectProxy` (for search results, see findObjects()
 	or layer()."""
 	
 	def allObjects(self, includeCompounds = False):
@@ -1084,10 +1084,10 @@ class Container(list):
 		  # for disjunctive conditions, use list concatenation:
 		  figFile.findObjects(depth = 10) + figFile.findObjects(depth = 20)
 
-		The returned object is actually an ObjectProxy, which is a
-		special Container (which is a special python list) and allows
+		The returned object is actually an `ObjectProxy`, which is a
+		special `Container` (which is a special python list) and allows
 		to quickly change properties on all contained objects.  See
-		the Container and ObjectProxy classes."""
+		the `Container` and `ObjectProxy` classes."""
 
 		result = ObjectProxy()
 		result.__dict__["parent"] = self
@@ -1106,9 +1106,9 @@ class Container(list):
 		return result
 
 	def layer(self, layer):
-		"""container.layer(layer) -> ObjectProxy
+		"""container.layer(layer) -> `ObjectProxy`
 
-		Returns an ObjectProxy for all objects within this container
+		Returns an `ObjectProxy` for all objects within this container
 		that have the given depth; convenience shortcut for
 		findObjects(depth = layer)."""
 		
@@ -1127,9 +1127,9 @@ class Container(list):
 	def remove(self, object):
 		"""container.remove(object)
 
-		Removes the given object from this Container.  Also works
-		recursively for objects within Compounds within this
-		Container.  Raises a ValueError if the object is not
+		Removes the given object from this `Container`.  Also works
+		recursively for objects within `Compound` objects within this
+		`Container`.  Raises a ValueError if the object is not
 		contained."""
 		
 		try:
@@ -1145,16 +1145,18 @@ class Container(list):
 			raise ValueError("remove(): Given object not found in Container.")
 
 class ObjectProxy(Container):
-	"""An ObjectProxy is a special Container that is used for search
-	results (see Container.findObjects) which offers two additional
+	"""An ObjectProxy is a special `Container` that is used for search
+	results (see `Container.findObjects`) which offers two additional
 	features:
 
-	* remove(): Use like foo.findObjects(type = fig.PolyLine).remove()
+	remove():
+	  Use like ``foo.findObjects(type = fig.PolyLine).remove()``
 
 	  Removes all objects within this object proxy from the parent
-      container (the one findObjects was called on).
+	  container (the one `findObjects` was called on).
 
-	* settings attributes: foo.findObjects(type = fig.PolyLine).lineWidth = 4
+	setting attributes:
+	  ``foo.findObjects(type = fig.PolyLine).lineWidth = 4``
 
 	  Setting an attribute is promoted to all contained objects which
 	  have that attribute.  (E.g. setting fontAngle will affect only
@@ -1177,10 +1179,12 @@ class ObjectProxy(Container):
 			Container.remove(self, *args)
 	
 # --------------------------------------------------------------------
-# 							  compounds
+#                             compounds
 # --------------------------------------------------------------------
 
 class Compound(Container):
+	"""Represents a group of XFig objects."""
+	
 	def __init__(self, parent = None):
 		self._bounds = Rect()
 		if parent != None:
@@ -1213,7 +1217,7 @@ def _readCompound(params):
 	return result
 
 # --------------------------------------------------------------------
-# 								 file
+#                                file
 # --------------------------------------------------------------------
 
 class File(Container):
@@ -1541,7 +1545,7 @@ class File(Container):
 		return basename
 
 # --------------------------------------------------------------------
-# 							   TESTING:
+#                              TESTING:
 # --------------------------------------------------------------------
 
 if __name__ == "__main__":
@@ -1558,8 +1562,8 @@ if __name__ == "__main__":
 		for fn in sys.argv[1:]:
 			input = normalize(file(fn).read())
 			output = normalize(str(File(fn)))
-# 			for line in difflib.unified_diff(input, output):
-# 				print line
+#           for line in difflib.unified_diff(input, output):
+#               print line
 			sm = difflib.SequenceMatcher(None, input, output)
 			for code, b1, e1, b2, e2 in sm.get_opcodes():
 				if code == 'equal':
