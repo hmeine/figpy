@@ -1291,8 +1291,10 @@ class Container(list):
 	"""Container for fig objects, derived from the standard python
 	list.  This is the common superclass of `File` (for the whole
 	document), `Compound`, and `ObjectProxy` (for search results, see
-	`findObjects()` or `layer()`."""
+	`findObjects()` or `layer()`)."""
 	
+	__slots__ = ()
+
 	def allObjects(self, includeCompounds = False):
 		"""container.allObjects(includeCompounds = False) -> iterator
 
@@ -1321,7 +1323,7 @@ class Container(list):
 		the `Container` and `ObjectProxy` classes."""
 
 		result = ObjectProxy()
-		result.__dict__["parent"] = self
+		result.parent = self
 		for o in self.allObjects("type" in kwargs and kwargs["type"] == Compound):
 			match = True
 			for key in kwargs:
@@ -1393,7 +1395,12 @@ class ObjectProxy(Container):
 	  have that attribute.  (E.g. setting fontAngle will affect only
 	  Text objects.)"""
 	
+	__slots__ = ("parent", )
+	
 	def __setattr__(self, key, value):
+		if key == "parent":
+			Container.__setattr__(self, key, value)
+			return
 		for ob in self:
 			if hasattr(ob, key):
 				setattr(ob, key, value)
@@ -1433,8 +1440,11 @@ class ObjectProxy(Container):
 
 class Compound(Container):
 	"""Represents a group of XFig objects."""
+
+	__slots__ = ("_bounds", )
 	
 	def __init__(self, parent = None):
+		Container.__init__(self)
 		self._bounds = Rect()
 		if parent != None:
 			parent.append(self)
@@ -1471,11 +1481,15 @@ def _readCompound(params):
 
 class File(Container):
 	"""Main class of the `fig` module, represents an XFig document."""
+
+	__slots__ = ("landscape", "centered", "metric", "paperSize",
+				 "magnification", "singlePage", "transparentColor", "ppi",
+				 "filename", "colors", "_colorhash")
 	
 	def __init__(self, inputFile = None):
 		Container.__init__(self)
 		self.colors = []
-		self.colorhash = {}
+		self._colorhash = {}
 		self.filename = None
 
 		if inputFile == None:
@@ -1588,7 +1602,7 @@ class File(Container):
 		else:
 			raise TypeError("addColor() should be called with a hexCode (e.g. #ffee00) or a CustomColor instance")
 		self.colors.append(result)
-		self.colorhash[hexCode] = result
+		self._colorhash[hexCode] = result
 		return result
 
 	def getColor(self, color, similarity = None):
@@ -1631,7 +1645,7 @@ class File(Container):
 		assert len(color) == 7, \
 			   "too large values given for red, green, or blue: %s" % (inputGiven, )
 		try:
-			return self.colorhash[color]
+			return self._colorhash[color]
 		except KeyError:
 			if similarity != None:
 				if not similarity > 0.0:
