@@ -3,39 +3,39 @@
 You can read fig files into a `File` object 'f' with::
 
   import fig
-  f = fig.File(filename) # or pass a file-like object
+  f = fig.File(filename) # or pass a file-like object"""
 
-:author: Hans Meine <hans_meine@gmx.net>"""
+__author__ = "Hans Meine <hans_meine@gmx.net>"
 
-_version = "$Id$" \
+__version__ = "$Id$" \
 			  .split(" ")[2:-2]
 
 import sys, re, math, types, os, operator
 
-# object codes
-figCustomColor   = 0
-figEllipse       = 1
-figPolygon       = 2
-figSpline        = 3
-figText          = 4
-figArc           = 5
-figCompoundBegin = 6
-figCompoundEnd   = -6
+#{ object codes
+_figCustomColor   = 0
+_figEllipse       = 1
+_figPolygon       = 2
+_figSpline        = 3
+_figText          = 4
+_figArc           = 5
+_figCompoundBegin = 6
+_figCompoundEnd   = -6
 
-# polygon types
+#{ polygon type constants (cf. `PolylineBase.changeType()`)
 ptPolyline    = 1
 ptBox         = 2
 ptPolygon     = 3
 ptArcBox      = 4
 ptPictureBBox = 5
 
-# ellipse types
+#{ ellipse type constants (cf. `EllipseBase.changeType()`)
 etEllipseRadii    = 1
 etEllipseDiameter = 2
 etCircleRadius    = 3
 etCircleDiameter  = 4
 
-# spline types
+#{ spline type constants (cf. `SplineBase.changeType()`)
 stOpenApproximated   = 0
 stClosedApproximated = 1
 stOpenInterpolated   = 2
@@ -43,31 +43,37 @@ stClosedInterpolated = 3
 stOpenXSpline        = 4
 stClosedXSpline      = 5
 
-# arc types
+#{ arc type constants (cf. `ArcBase.changeType()`)
 atPie  = 0
 atOpen = 1
 
-# arc directions
+#{ arc directions (cf. ArcBase.direction property)
 adClockwise = 0
 adCounterClockwise = 1
 
-# fill styles
+#{ fill style constants (cf. `Object.fillStyle` property)
 fillStyleNone    = -1
 fillStyleBlack   = 0
 fillStyleSolid   = 20
 fillStyleStripes = 42 # obsolete
-def fillStyleShaded(percent): # 0 = black .. 100 = fillColor (5% steps)
-	return int(percent) / 5
-def fillStyleTinted(percent): # 0 = fillColor .. 100 = white (5% steps)
-	return 20 + int(percent) / 5
 fillStyleLeft30    = 41 # 30 degree left diagonal pattern
 fillStyleRight30   = 42 # 30 degree right diagonal pattern
 fillStyleCrossed30 = 44 # 30 degree cross-hatched pattern
 fillStyleLeft45    = 44 # 45 degree left diagonal pattern
 fillStyleRight45   = 45 # 45 degree right diagonal pattern
 fillStyleCrossed45 = 46 # 45 degree cross-hatched pattern
+#}
 
-# line styles
+def fillStyleShaded(percent):
+	"""Returns a fillStyle for dark shades of the fill color.
+	`percent` decides between 0 = black .. 100 = fillColor (5% steps)"""
+	return int(percent) / 5
+def fillStyleTinted(percent):
+	"""Returns a fillStyle for light tinted fill colors.
+	`percent` decides between 0 = fillColor .. 100 = white (5% steps)"""
+	return 20 + int(percent) / 5
+
+#{ line style constants (cf. `Object.lineStyle` property)
 lineStyleDefault          = -1
 lineStyleSolid            = 0
 lineStyleDashed           = 1
@@ -76,10 +82,11 @@ lineStyleDashDotted       = 3
 lineStyleDashDoubleDotted = 4
 lineStyleDashTripleDotted = 5
 
-# cap styles
+#{ cap style constants (cf. `Object.capStyle` property)
 capStyleButt = 0
 capStyleRound = 1
 capStyleProjecting = 2
+#}
 
 standardColors = [
 	# pure colors:
@@ -124,8 +131,9 @@ standardColors = [
 	# gold:
 	(255, 215, 0),
 	]
+"Mapping of the standard colors to RGB triples."
 
-# colors
+#{ color constants (cf. `Object.penColor` and `Object.fillColor` properties)
 colorDefault   = -1
 colorBlack     = 0
 colorBlue      = 1
@@ -161,17 +169,17 @@ colorLightPink = 30
 colorGold      = 31
 colorCustom0   = 32
 
-# join styles
+#{ join style constants (cf. `Object.joinStyle` property)
 joinStyleMiter = 0
 joinStyleBevel = 1
 joinStyleRound = 2
 
-# alignments
+#{ alignment constants (cf. `Text.alignment` property)
 alignLeft     = 0
 alignCentered = 1
 alignRight    = 2
 
-# PS fonts (only valid if font flags == 2): # FIXME: PS prefix?
+#{ PS font constants (cf. `Text.font` property, only valid if `Text.fontFlags` & ffPostScript)
 fontDefault                        = -1
 fontTimesRoman                     = 0
 fontTimesItalic                    = 1
@@ -209,15 +217,17 @@ fontSymbol                         = 32
 fontZapfChanceryMediumItalic       = 33
 fontZapfDingbats                   = 34
 
-# font flags
+#{ font flag constants (cf. `Text.fontFlags` property)
 ffRigid      = 1
 ffSpecial    = 2
 ffPostScript = 4
 ffHidden     = 8
 
+#}
 paperSizes = ["Letter", "Legal", "Ledger", "Tabloid",
 			  "A", "B", "C", "D", "E",
 			  "A4", "A3", "A2", "A1", "A0", "B5"]
+"""Valid paper sizes, cf. `File.paperSize`."""
 
 # --------------------------------------------------------------------
 #                              helpers
@@ -374,7 +384,7 @@ class CustomColor(object):
 		#sys.stderr.write("CustomColor(%d, '%s') -> %s" % (index, hexCode, repr(self)))
 
 	def __repr__(self):
-		return _join(figCustomColor, self.index, self.hexCode) + "\n"
+		return _join(_figCustomColor, self.index, self.hexCode) + "\n"
 
 	def __str__(self):
 		return str(self.index)
@@ -487,7 +497,7 @@ class ArcBase(Object):
 		hasForwardArrow = (self.forwardArrow != None and 1 or 0)
 		hasBackwardArrow = (self.backwardArrow != None and 1 or 0)
 		
-		result = _join(figArc, self.arcType(),
+		result = _join(_figArc, self.arcType(),
 					   self.lineStyle, self.lineWidth,
 					   self.penColor, self.fillColor,
 					   self.depth, self.penStyle,
@@ -604,7 +614,7 @@ class EllipseBase(Object):
 			raise ValueError("Unknown ellipseType %d!" % ellipseType)
 
 	def __str__(self):
-		return _join(figEllipse, self.ellipseType(),
+		return _join(_figEllipse, self.ellipseType(),
 					 self.lineStyle, self.lineWidth,
 					 self.penColor, self.fillColor,
 					 self.depth, self.penStyle,
@@ -796,7 +806,7 @@ class PolylineBase(Object):
 		hasForwardArrow = (self.forwardArrow != None and 1 or 0)
 		hasBackwardArrow = (self.backwardArrow != None and 1 or 0)
 		
-		result = _join(figPolygon, self.polylineType(),
+		result = _join(_figPolygon, self.polylineType(),
 					   self.lineStyle, self.lineWidth,
 					   self.penColor, self.fillColor,
 					   self.depth, self.penStyle,
@@ -1060,7 +1070,7 @@ class SplineBase(Object):
 		hasForwardArrow = (self.forwardArrow != None and 1 or 0)
 		hasBackwardArrow = (self.backwardArrow != None and 1 or 0)
 
-		result = _join(figSpline, self.splineType(),
+		result = _join(_figSpline, self.splineType(),
 					   self.lineStyle, self.lineWidth,
 					   self.penColor, self.fillColor,
 					   self.depth, self.penStyle,
@@ -1225,7 +1235,7 @@ class Text(Object):
 		return result
 
 	def __str__(self):
-		result = _join(figText, self.alignment,
+		result = _join(_figText, self.alignment,
 					   self.penColor, self.depth, self.penStyle,
 					   self.font, self.fontSize, str(self.fontAngle), self.fontFlags,
 					   self.height, self.length, self.x, self.y,
@@ -1442,10 +1452,10 @@ class Compound(Container):
 		result = ""
 		for o in self:
 			result += str(o)
-		return _join(figCompoundBegin,
+		return _join(_figCompoundBegin,
 					 int(self._bounds.x1), int(self._bounds.y1),
 					 int(self._bounds.x2), int(self._bounds.y2)) + "\n" + \
-			   result + str(figCompoundEnd) + "\n"
+			   result + str(_figCompoundEnd) + "\n"
 
 def _readCompound(params):
 	result = Compound()
@@ -1523,23 +1533,23 @@ class File(Container):
 					else:
 						objectType = int(params[0])
 						subLineExpected = 0
-						if objectType == figCustomColor:
+						if objectType == _figCustomColor:
 							self.addColor(CustomColor(int(params[1]), params[2]))
-						elif objectType == figPolygon:
+						elif objectType == _figPolygon:
 							currentObject, subLineExpected = _readPolylineBase(params[1:])
-						elif objectType == figArc:
+						elif objectType == _figArc:
 							currentObject, subLineExpected = _readArcBase(params[1:])
-						elif objectType == figSpline:
+						elif objectType == _figSpline:
 							currentObject, subLineExpected = _readSplineBase(params[1:])
-						elif objectType == figText:
+						elif objectType == _figText:
 							assert line[-4:] == "\\001"
 							currentObject, subLineExpected = _readText(
 								params[1:], line.split(" ", 13)[-1][:-4])
-						elif objectType == figEllipse:
+						elif objectType == _figEllipse:
 							currentObject, subLineExpected = _readEllipseBase(params[1:])
-						elif objectType == figCompoundBegin:
+						elif objectType == _figCompoundBegin:
 							stack.append(_readCompound(params[1:]))
-						elif objectType == figCompoundEnd:
+						elif objectType == _figCompoundEnd:
 							currentObject = stack.pop()
 						else:
 							raise ValueError(
