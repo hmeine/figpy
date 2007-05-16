@@ -47,6 +47,10 @@ stClosedXSpline      = 5
 atPie  = 0
 atOpen = 1
 
+# arc directions
+adClockwise = 0
+adCounterClockwise = 1
+
 # fill styles
 fillStyleNone    = -1
 fillStyleBlack   = 0
@@ -234,7 +238,7 @@ _re_size = re.compile("([0-9]+)x([0-9]+)")
 _re_geometry = re.compile("([0-9]+)[:,]([0-9]+)([+-:,])([0-9]+)([x:,])([0-9]+)")
 
 def parseSize(sizeStr):
-	"""Convenience function for parsing size strings into tuples::
+	"""Convenience function for parsing size strings into tuples:
 	
 	  >>> fig.parseSize('640x480')
 	  (640, 480)
@@ -247,19 +251,18 @@ def parseSize(sizeStr):
 
 def parseGeometry(geometryString):
 	"""Convenience function for parsing geometry strings of various
-	formats::
+	formats.  Example usage:
 
-	  # python
-	  >>> import fig
-	  >>> fig.parseGeometry("320,240-640,480")
-	  fig.Rect(320,240,640,480)
-	  >>> fig.parseGeometry("50,50+50,50")
-	  fig.Rect(50,50,100,100)
-	  >>> fig.parseGeometry("40,40,320,240")
-	  fig.Rect(40,40,320,240)
-	  >>> r = fig.Rect(0,0,320,240)
-	  >>> fig.parseGeometry(str(r)) == r
-	  True
+	>>> import fig
+	>>> fig.parseGeometry("320,240-640,480")
+	fig.Rect(320,240,640,480)
+	>>> fig.parseGeometry("50,50+50,50")
+	fig.Rect(50,50,100,100)
+	>>> fig.parseGeometry("40,40,320,240")
+	fig.Rect(40,40,320,240)
+	>>> r = fig.Rect(0,0,320,240)
+	>>> fig.parseGeometry(str(r)) == r
+	True
 	"""
 	ma = _re_geometry.match(geometryString)
 	if ma:
@@ -359,7 +362,7 @@ class Rect(object):
 		yield self.y2
 
 # --------------------------------------------------------------------
-#                            DOM objects
+# 							custom colors
 # --------------------------------------------------------------------
 
 class CustomColor(object):
@@ -406,8 +409,12 @@ class CustomColor(object):
 	def setRGB(self, r, g, b):
 		self.hexCode = "#%02x%02x%02x" % (r, g, b)
 
+# --------------------------------------------------------------------
+# 				Object: base class for all fig objects
+# --------------------------------------------------------------------
+
 class Object(object):
-	"""Base class of all fig objects, handles common properties like
+	"""Base class of all fig objects.  Handles common properties like
 	
 	- lineStyle (see `lineStyleXXX` constants)
 	- lineWidth (1/80th inch)
@@ -419,8 +426,15 @@ class Object(object):
 	- capStyle (see `capStyleXXX` constants)
 	- forwardArrow/backwardArrow (`Arrow` objects)"""
 
+	__slots__ = ("lineStyle", "lineWidth", "penColor", "fillColor", "depth",
+				 "penStyle", "fillStyle", "styleValue", "joinStyle", "capStyle",
+				 "forwardArrow", "backwardArrow")
+
 	def __init__(self):
 		self.lineStyle = lineStyleDefault
+# Line thicknesses are given in 1/80 inch (0.3175mm) or 1 screen pixel.
+# When exporting to EPS, PostScript or any bitmap format (e.g. GIF),  the
+# line thickness is reduced to 1/160 inch (0.159mm) to "lighten" the look.
 		self.lineWidth = 1
 		self.penColor = colorDefault
 		self.fillColor = colorDefault
@@ -430,7 +444,6 @@ class Object(object):
 		self.styleValue = 3.0
 		self.joinStyle = 0
 		self.capStyle = 0
-		self.radius = -1
 		self.forwardArrow = None
 		self.backwardArrow = None
 
@@ -454,10 +467,14 @@ class Arrow(object):
 
 class ArcBase(Object):
 	"""Base class of Arc-like objects (`PieArc`, `OpenArc`)."""
-		
+
+	__slots__ = ("points", "direction", "center", "_pointCount")
+	
 	def __init__(self):
 		Object.__init__(self)
 		self.points = []
+		self.center = None
+		self.direction = adClockwise
 
 	def changeType(self, arcType):
 		"Change type of this Arc. arcType may be one of atPie or atOpen"
@@ -477,7 +494,7 @@ class ArcBase(Object):
 					   self.fillStyle, str(self.styleValue),
 					   self.capStyle, self.direction,
 					   hasForwardArrow, hasBackwardArrow,
-					   str(self.centerX), str(self.centerY),
+					   str(self.center[0]), str(self.center[1]),
 					   self.points[0][0], self.points[0][1],
 					   self.points[1][0], self.points[1][1],
 					   self.points[2][0], self.points[2][1]) + "\n"
@@ -509,12 +526,16 @@ class ArcBase(Object):
 class PieArc(ArcBase):
 	"""Represents a closed arc object."""
 	
+	__slots__ = ()
+
 	def arcType(self):
 		"Return type of this Arc (atPie), see `changeType`."
 		return atPie
 
 class OpenArc(ArcBase):
 	"""Represents an open arc object."""
+
+	__slots__ = ()
 
 	def arcType(self):
 		"Return type of this Arc (atOpen), see `changeType`."
@@ -540,8 +561,7 @@ def _readArcBase(params):
 	if int(params[12]):
 		result.backwardArrow = True
 		subLines += 1
-	result.centerX = float(params[13])
-	result.centerY = float(params[14])
+	result.center = (float(params[13]), float(params[14]))
 	result.points = [(int(params[15]), int(params[16])),
 					 (int(params[17]), int(params[18])),
 					 (int(params[19]), int(params[20]))]
@@ -554,6 +574,8 @@ def _readArcBase(params):
 class EllipseBase(Object):
 	"""Base class of Ellipse-like objects (`Ellipse`, `Circle`)."""
 	
+	__slots__ = ("angle", "center", "radius", "start", "end")
+
 	def __init__(self):
 		Object.__init__(self)
 		self.angle = 0.0
@@ -611,10 +633,10 @@ class EllipseBase(Object):
 		else:
 			assert len(radius) == 2 and float(radius[0]) != None and float(radius[1]) != None, "radius must be either a tuple of x/y radii, or a single radius, convertible to float(s)"
 			self.radius = radius
-		# FIXME: depend on ellipseType
+		# FIXME: depend on ellipseType (currently, ellipseType may change)
 		self.start = self.center
-		self.end = (self.center[0] + radius[0],
-					self.center[1] + radius[1])
+		self.end = (self.center[0] + self.radius[0],
+					self.center[1] + self.radius[1])
 
 	def setCenterRadius(self, center, radius):
 		"""Set center and radius, see `setRadius`."""
@@ -644,6 +666,8 @@ class Ellipse(EllipseBase):
 	attribute `radius` that is a tuple of two radii in x- and
 	y-direction."""
 	
+	__slots__ = ()
+
 	def __init__(self, center = None, radii = None,
 				 start = None, end = None):
 		EllipseBase.__init__(self)
@@ -674,6 +698,8 @@ class Circle(EllipseBase):
 	"""Represents a circle object.  Circle objects have an
 	attribute `radius` that is a single float."""
 	
+	__slots__ = ()
+
 	def __init__(self, center = None, radius = None,
 				 start = None, end = None):
 		EllipseBase.__init__(self)
@@ -713,12 +739,15 @@ class Circle(EllipseBase):
 class PolylineBase(Object):
 	"""Base class of Polygon-like objects (`Polygon`,
 	`Polyline`, `PictureBBox`)."""
+
+	__slots__ = ("points", "pictureFilename", "flipped", "radius", "_pointCount")
 	
 	def __init__(self):
 		Object.__init__(self)
 		self.points = []
 		self.pictureFilename = None
 		self.flipped = False
+		self.radius = -1
 
 	def changeType(self, polylineType, retainPoints = False):
 		"""Change type of this Polyline object.  `polylineType` may be one
@@ -862,6 +891,8 @@ def _readPolylineBase(params):
 class PolyBox(PolylineBase):
 	"""Represents a rectangular closed box object."""
 	
+	__slots__ = ()
+
 	def __init__(self, x1, y1, x2, y2):
 		PolylineBase.__init__(self)
 		self.points.append((x1, y1))
@@ -896,6 +927,8 @@ class PolyBox(PolylineBase):
 class ArcBox(PolyBox):
 	"""Represents a rectangular box with rounded corners."""
 	
+	__slots__ = ()
+
 	def polylineType(self):
 		"""Returns type of this polygon (ptArcBox for all `ArcBox` objects),
 		see `changeType`."""
@@ -905,6 +938,8 @@ class ArcBox(PolyBox):
 class Polygon(PolylineBase):
 	"""Represents a closed polygon object."""
 	
+	__slots__ = ()
+
 	def __init__(self, points, closed = True):
 		PolylineBase.__init__(self)
 		self.points = points
@@ -925,6 +960,8 @@ class Polygon(PolylineBase):
 class Polyline(PolylineBase):
 	"""Represents an open polygon object."""
 	
+	__slots__ = ()
+
 	def __init__(self, *points):
 		PolylineBase.__init__(self)
 		self.points = points
@@ -945,6 +982,8 @@ class PictureBBox(PolyBox):
 	"""Represents a picture embedded in an XFig file.  The filename is
 	stored in the `pictureFilename` attribute."""
 	
+	__slots__ = ()
+
 	def __init__(self, x1, y1, x2, y2, filename, flipped = False):
 		PolyBox.__init__(self, x1, y1, x2, y2)
 		self.pictureFilename = filename
@@ -969,6 +1008,8 @@ class SplineBase(Object):
 	"""Base class of Spline objects (`ApproximatedSpline`,
 	`InterpolatedSpline`, `XSpline`)."""
 	
+	__slots__ = ("points", "shapeFactors", "_closed", "_pointCount")
+
 	def __init__(self, points = None, shapeFactors = None):
 		Object.__init__(self)
 		self.points = points or []
@@ -977,7 +1018,7 @@ class SplineBase(Object):
 
 	def closed(self):
 		"""Returns whether this spline curve is closed."""
-		assert self._closed != None, "SplineBase.closed(): _closedness not initialized!"
+		assert self._closed != None, "SplineBase.closed(): _closed not initialized!"
 		return self._closed
 
 	def changeType(self, splineType):
@@ -1091,18 +1132,24 @@ class SplineBase(Object):
 class ApproximatedSpline(SplineBase):
 	"""Represents an open or closed approximated spline object."""
 	
+	__slots__ = ()
+
 	def splineType(self):
 		return self._closed and stClosedApproximated or stOpenApproximated
 
 class InterpolatedSpline(SplineBase):
 	"""Represents an open or closed interpolated spline object."""
 	
+	__slots__ = ()
+
 	def splineType(self):
 		return self._closed and stClosedInterpolated or stOpenInterpolated
 
 class XSpline(SplineBase):
 	"""Represents an open or closed 'x-spline' object."""
 	
+	__slots__ = ()
+
 	def splineType(self):
 		return self._closed and stClosedXSpline or stOpenXSpline
 
@@ -1146,6 +1193,10 @@ class Text(Object):
 	- fontFlags (cf. `ffXXX` constants, default: ffPostScript)
 	- length, height (dummy values, no guarantee about correctness)
 	"""
+
+	__slots__ = ("text", "x", "y", "alignment",
+				 "font", "fontSize", "fontAngle", "fontFlags",
+				 "length", "height")
 
 	def __init__(self, x, y, text, alignment = alignLeft):
 		Object.__init__(self)
@@ -1228,9 +1279,9 @@ class _AllObjectIter(object):
 
 class Container(list):
 	"""Container for fig objects, derived from the standard python
-	list.  This is the common subclass of `File` (for the whole
-	document) and `ObjectProxy` (for search results, see findObjects()
-	or layer()."""
+	list.  This is the common superclass of `File` (for the whole
+	document), `Compound`, and `ObjectProxy` (for search results, see
+	`findObjects()` or `layer()`."""
 	
 	def allObjects(self, includeCompounds = False):
 		"""container.allObjects(includeCompounds = False) -> iterator
@@ -1337,6 +1388,20 @@ class ObjectProxy(Container):
 			if hasattr(ob, key):
 				setattr(ob, key, value)
 
+	def __getattr__(self, key):
+		found = False
+		for ob in self:
+			if hasattr(ob, key):
+				if found:
+					if getattr(ob, key) != result:
+						return None
+				else:
+					result = getattr(ob, key)
+					found = True
+		if not found:
+			raise AttributeError("No Object within ObjectProxy has a '%s' attribute!" % key)
+		return result
+
 	def remove(self, *args):
 		"""When no arguments are given, remove all objects from parent
 		container.  Else, remove given object from this container."""
@@ -1347,7 +1412,11 @@ class ObjectProxy(Container):
 				self.parent.remove(ob)
 		else:
 			Container.remove(self, *args)
-	
+
+	def __add__(self, other):
+		if isinstance(other, list):
+			return ObjectProxy(list.__add__(self, other))
+
 # --------------------------------------------------------------------
 #                             compounds
 # --------------------------------------------------------------------
