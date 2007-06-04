@@ -55,13 +55,20 @@ adCounterClockwise = 1
 fillStyleNone    = -1
 fillStyleBlack   = 0
 fillStyleSolid   = 20
-fillStyleStripes = 42 # obsolete
-fillStyleLeft30    = 41 # 30 degree left diagonal pattern
-fillStyleRight30   = 42 # 30 degree right diagonal pattern
-fillStyleCrossed30 = 44 # 30 degree cross-hatched pattern
-fillStyleLeft45    = 44 # 45 degree left diagonal pattern
-fillStyleRight45   = 45 # 45 degree right diagonal pattern
-fillStyleCrossed45 = 46 # 45 degree cross-hatched pattern
+fillStyleStripes = 42
+"obsolete, use `fillStyleRight30` instead"
+fillStyleLeft30    = 41
+"30 degree left diagonal pattern"
+fillStyleRight30   = 42
+"30 degree right diagonal pattern"
+fillStyleCrossed30 = 44
+"30 degree cross-hatched pattern"
+fillStyleLeft45    = 44
+"45 degree left diagonal pattern"
+fillStyleRight45   = 45
+"45 degree right diagonal pattern"
+fillStyleCrossed45 = 46
+"45 degree cross-hatched pattern"
 #}
 
 def fillStyleShaded(percent):
@@ -72,6 +79,22 @@ def fillStyleTinted(percent):
 	"""Returns a fillStyle for light tinted fill colors.
 	`percent` decides between 0 = fillColor .. 100 = white (5% steps)"""
 	return 20 + int(percent) / 5
+
+#{ arrow type constants
+arStick = 0
+"stick-type, three-stroke arrow head (default in xfig 2.1 and earlier)"
+arClosed = 1
+"closed triangle"
+arClosedIndented = 2
+"closed with 'indented' butt"
+arClosedPointed = 3
+"closed with 'pointed' butt"
+
+#{ arrow style constants
+asHollow = 0
+"filled with white"
+asFilled = 1
+"filled with penColor"
 
 #{ line style constants (cf. `Object.lineStyle` property)
 lineStyleDefault          = -1
@@ -465,15 +488,30 @@ class Arrow(object):
 	"""Arrow objects store arrow parameters of other objects.
 	Instances of this class are usually assigned to the
 	`forwardArrow`/`backwardArrow` properties of `fig.Object`.
-
-	FIXME: This class is still a stub that stores all parameters in a
-	single attribute 'params'."""
+	The Arrow properties are
 	
-	def __init__(self, params):
-		self.params = params
+	- type (see `arXXX` constants - note that atXXX are the arc types)
+	- style (`asHollow` or `asFilled`)
+	- thickness, in 1/80th inches
+	- width, height (in fig units)"""
+
+	__slots__ = ("type", "style", "thickness", "width", "height")
+	
+	def __init__(self, type = arStick, style = asHollow,
+				 thickness = 1.0, width = 4.0, height = 8.0):
+		self.type = type
+		self.style = style
+		self.thickness = thickness
+		self.width = width
+		self.height = height
 
 	def __str__(self):
-		return _join(*self.params) + "\n"
+		return _join(self.type, self.style,
+					 str(self.thickness), str(self.width), str(self.height)) + "\n"
+
+def readArrow(params):
+	return Arrow(int(params[0]), int(params[1]),
+				 float(params[2]), float(params[3]), float(params[4]))
 
 # --------------------------------------------------------------------
 #                                arcs
@@ -527,11 +565,11 @@ class ArcBase(Object):
 
 	def _readSub(self, params):
 		if self.forwardArrow == True:
-			self.forwardArrow = Arrow(params)
+			self.forwardArrow = readArrow(params)
 			return self.backwardArrow == True
 
 		if self.backwardArrow == True:
-			self.backwardArrow = Arrow(params)
+			self.backwardArrow = readArrow(params)
 			return False
 
 		sys.stderr.write("Unhandled subline while loading arc object!\n")
@@ -846,11 +884,11 @@ class PolylineBase(Object):
 
 	def _readSub(self, params):
 		if self.forwardArrow == True:
-			self.forwardArrow = Arrow(params)
+			self.forwardArrow = readArrow(params)
 			return True
 
 		if self.backwardArrow == True:
-			self.backwardArrow = Arrow(params)
+			self.backwardArrow = readArrow(params)
 			return True
 
 		if type(self) == PictureBBox and self.pictureFilename == None:
@@ -976,7 +1014,7 @@ class Polyline(PolylineBase):
 	
 	__slots__ = ()
 
-	def __init__(self, *points):
+	def __init__(self, points):
 		PolylineBase.__init__(self)
 		self.points = points
 
@@ -1111,11 +1149,11 @@ class SplineBase(Object):
 
 	def _readSub(self, params):
 		if self.forwardArrow == True:
-			self.forwardArrow = Arrow(params)
+			self.forwardArrow = readArrow(params)
 			return True
 
 		if self.backwardArrow == True:
-			self.backwardArrow = Arrow(params)
+			self.backwardArrow = readArrow(params)
 			return True
 
 		expectedPoints = self._pointCount
@@ -1334,10 +1372,10 @@ class Container(list):
 				if key == "type":
 					if not isinstance(o, kwargs[key]):
 						match = False
-						continue
+						break
 				elif getattr(o, key, "attribNotPresent") != kwargs[key]:
 					match = False
-					continue
+					break
 			if match:
 				result.append(o)
 		return result
