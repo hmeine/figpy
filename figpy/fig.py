@@ -234,9 +234,13 @@ paperSizes = ["Letter", "Legal", "Ledger", "Tabloid",
 # --------------------------------------------------------------------
 
 def _join(*sequence):
+	"""Helper function to bring internal object parameters into XFig
+	string format.  Attention: floating point numbers are rounded and
+	converted to integer - if floats are to be output, call str() on
+	them before passing to this function."""
 	parts = []
 	for item in sequence:
-		if type(item) == float:
+		if isinstance(item, float):
 			parts.append(str(int(round(item))))
 		elif type(item) == bool:
 			parts.append(str(int(item)))
@@ -733,13 +737,13 @@ class Circle(EllipseBase):
 		# FIXME: depend on ellipseType
 		self.center = ((start[0] + end[0])/2,
 					   (start[1] + end[1])/2)
-		radius = int(round(math.hypot(end[0] - self.center[0],
-									  end[1] - self.center[1])))
+		radius = math.hypot(end[0] - self.center[0],
+							end[1] - self.center[1])
 		self.radius = (radius, radius)
 
 	def __str__(self):
 		assert self.radius[0] == self.radius[1], \
-			   "invalid circle (radii %d != %d)" % self.radius
+			   "invalid circle (radii %s != %s)" % self.radius
 		return EllipseBase.__str__(self)
 
 # --------------------------------------------------------------------
@@ -1739,7 +1743,9 @@ class File(Container):
 		if filename != None:
 			self.filename = filename
 		assert self.filename, "figfile.save() needs a filename!"
-		file(self.filename, "w").write(str(self))
+
+		output = str(self)
+		file(self.filename, "w").write(output)
 
 		if fig2dev:
 			self.fig2dev(lang = fig2dev)
