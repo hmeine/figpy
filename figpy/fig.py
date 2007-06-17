@@ -252,6 +252,9 @@ paperSizes = ["Letter", "Legal", "Ledger", "Tabloid",
 			  "A4", "A3", "A2", "A1", "A0", "B5"]
 """Valid paper sizes, cf. `File.paperSize`."""
 
+unitCM = 450
+"""fig units per centimeter (used for positions, radii, ...)"""
+
 # --------------------------------------------------------------------
 #                              helpers
 # --------------------------------------------------------------------
@@ -507,7 +510,8 @@ class Arrow(object):
 
 	def __str__(self):
 		return _join(self.type, self.style,
-					 str(self.thickness), str(self.width), str(self.height)) + "\n"
+					 str(self.thickness),
+					 str(self.width), str(self.height)) + "\n"
 
 def readArrow(params):
 	return Arrow(int(params[0]), int(params[1]),
@@ -662,7 +666,7 @@ class EllipseBase(Object):
 					 self.depth, self.penStyle,
 					 self.fillStyle, str(self.styleValue),
 					 1, # "1" is self.direction
-					 str(self.angle),
+					 str(self.angle % (2*math.pi)),
 					 self.center[0], self.center[1],
 					 self.radius[0], self.radius[1],
 					 self.start[0], self.start[1],
@@ -720,9 +724,10 @@ class Ellipse(EllipseBase):
 	
 	__slots__ = ()
 
-	def __init__(self, center = None, radii = None,
+	def __init__(self, center = None, radii = None, angle = 0.0,
 				 start = None, end = None):
 		EllipseBase.__init__(self)
+		self.angle = angle
 		if center != None and radii != None:
 			self.setCenterRadius(center, radii)
 		else:
@@ -968,6 +973,14 @@ class PolyBox(PolylineBase):
 		return ((self.points[0][0] + self.points[2][0])/2,
 				(self.points[0][1] + self.points[2][1])/2)
 
+	def upperLeft(self):
+		"""Returns coordinates of upper left corner."""
+		return self.points[0]
+	
+	def lowerRight(self):
+		"""Returns coordinates of lower right corner."""
+		return self.points[2]
+	
 	def width(self):
 		"""Returns width of this box."""
 		return abs(self.points[2][0] - self.points[0][0])
