@@ -1648,7 +1648,9 @@ class File(Container):
 	def addColor(self, hexCode):
 		"""Adds a custom color to this document.  hexCode may be
 		either a hex code like #ffee00 or a CustomColor instance."""
-		
+
+		assert len(self.colors) < 512, \
+			   ".fig file format does not allow more than 512 custom colors!"
 		if isinstance(hexCode, str):
 			result = CustomColor(colorCustom0 + len(self.colors), hexCode)
 		elif isinstance(hexCode, CustomColor):
@@ -1774,6 +1776,8 @@ class File(Container):
 		"""Returns the contents of this file in the XFig file format as string.
 		See save()."""
 		
+		assert len(self.colors) < 512, \
+			   ".fig file format does not allow more than 512 custom colors!"
 		result = self.headerStr() + \
 				 "".join(map(repr, self.colors)) + \
 				 self.objectsStr()
@@ -1842,7 +1846,7 @@ class File(Container):
 			os.chdir(path)
 
 		try:
-			cin, cout = os.popen4("fig2dev -L %s '%s' '%s'" % (
+			cin, cout = os.popen4("fig2dev -L %s -p dummy '%s' '%s'" % (
 				lang, basename, output))
 			cin.close()
 			sys.stdout.write(cout.read())
