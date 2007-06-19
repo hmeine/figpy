@@ -1,0 +1,75 @@
+#!/usr/bin/env python
+import fig, sys, os, tempfile, subprocess
+
+if len(sys.argv) < 2:
+	print "USAGE: " + sys.argv[0] + " <infile.fig> [outfile.pdf]"
+	sys.exit(1)
+
+inFileName = sys.argv[1]
+
+if len(sys.argv) < 3:
+	outFileName = os.path.splitext(inFileName)[0]+".pdf"
+else:
+	outFileName = sys.argv[2]
+
+if outFileName != "-":
+	# we call chdir below, so we need makeabs here:
+	outFileName = os.path.abspath(outFileName)
+
+if inFileName == "-":
+	infile = fig.File(sys.stdin)
+else:
+	infile = fig.File(inFileName)
+	dir, _ = os.path.split(inFileName)
+	if dir:
+		os.chdir(dir)
+
+tempJPGs = []
+
+def exit(message = None, ec = 0):
+	if message:
+		sys.stderr.write(message)
+	for jpg in tempJPGs:
+		os.unlink(jpg)
+	sys.exit(ec)
+
+def error(message):
+	exit(message, 1)
+
+for o in infile.findObjects(type = fig.PictureBBox):
+	print "found included image:", o.pictureFilename
+	picBasename, picExt = os.path.splitext(o.pictureFilename)
+	if picExt in (".jpg", ".jpeg", ".eps"):
+		print "  format OK..."
+		continue
+	f, jpgName = tempfile.mkstemp(".jpg", picBasename + "_fig2pdf")
+	os.close(f)
+
+	print "  converting to '%s'.." % jpgName
+	ec = subprocess.call(['convert', '-sample', '800%',
+						  o.pictureFilename, jpgName])
+	if ec:
+		error("Errorcode %d from convert, cancelling!" % ec)
+	o.pictureFilename = jpgName
+	tempJPGs.append(jpgName)
+
+if outFileName == "-":
+	outFile = sys.stdout
+else:
+	outFile = file(outFileName, "w")
+
+# somehow, fig2dev does not respect the orientation in the file.. :-(
+print "calling fig2dev.."
+orientationArg = infile.landscape and "l" or "p"
+fig2dev = subprocess.Popen(
+	("fig2dev -L pdf -%s dummyarg" % orientationArg).split(),
+	stdin = subprocess.PIPE, stdout = outFile)
+fig2dev.stdin.write(str(infile))
+fig2dev.stdin.close()
+
+if fig2dev.wait():
+	error("fig2dev exited with errorcode %d!\n" % fig2dev.returncode)
+
+outFile.close()
+
+exit()
