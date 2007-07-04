@@ -72,11 +72,11 @@ fillStyleCrossed45 = 46
 #}
 
 def fillStyleShaded(percent):
-	"""Returns a fillStyle for dark shades of the fill color.
+	"""Return a fillStyle for dark shades of the fill color.
 	`percent` decides between 0 = black .. 100 = fillColor (5% steps)"""
 	return int(percent) / 5
 def fillStyleTinted(percent):
-	"""Returns a fillStyle for light tinted fill colors.
+	"""Return a fillStyle for light tinted fill colors.
 	`percent` decides between 0 = fillColor .. 100 = white (5% steps)"""
 	return 20 + int(percent) / 5
 
@@ -268,7 +268,7 @@ def _join(*sequence):
 	for item in sequence:
 		if isinstance(item, float):
 			parts.append(str(int(round(item))))
-		elif type(item) == bool:
+		elif isinstance(item, bool):
 			parts.append(str(int(item)))
 		else:
 			parts.append(str(item))
@@ -343,7 +343,7 @@ class Rect(object):
 			self.empty = True
 	
 	def __call__(self, other):
-		if type(other) == Rect:
+		if isinstance(other, Rect):
 			self.__call__((other.x1, other.y1))
 			self.__call__((other.x2, other.y2))
 		else:
@@ -384,12 +384,12 @@ class Rect(object):
 		return "%d,%d-%d,%d" % (self.x1, self.y1, self.x2, self.y2)
 
 	def __eq__(self, other):
-		if type(other) != Rect:
+		if not isinstance(other, Rect):
 			return False
 		return str(self) == str(other)
 	
 	def __ne__(self, other):
-		if type(other) == Rect:
+		if isinstance(other, Rect):
 			return False
 		return str(self) != str(other)
 	
@@ -432,7 +432,7 @@ class CustomColor(object):
 		return cmp(self.index, other)
 
 	def __sub__(self, other):
-		"""Returns RGB vector difference as (dr,dg,db) tuple."""
+		"""Return RGB vector difference as (dr,dg,db) tuple."""
 		return map(operator.sub, self, other)
 
 	def __getitem__(self, index):
@@ -734,7 +734,7 @@ class Ellipse(EllipseBase):
 			self.setStartEnd(start, end)
 
 	def ellipseType(self):
-		"""Returns type of this ellipse (one of etEllipseRadii,
+		"""Return type of this ellipse (one of etEllipseRadii,
 		etEllipseDiameter for `Ellipse` objects), see `changeType`."""
 
 		if self.center == self.start:
@@ -766,7 +766,7 @@ class Circle(EllipseBase):
 			self.setStartEnd(start, end)
 
 	def ellipseType(self):
-		"""Returns type of this ellipse (one of etCircleRadius,
+		"""Return type of this ellipse (one of etCircleRadius,
 		etCircleDiameter for `Circle` objects), see `changeType`."""
 
 		if self.center == self.start:
@@ -866,7 +866,7 @@ class PolylineBase(Object):
 			result += "\t" + str(self.forwardArrow)
 		if hasBackwardArrow:
 			result += "\t" + str(self.backwardArrow)
-		if type(self) == PictureBBox:
+		if isinstance(self, PictureBBox):
 			result += "\t" + _join(self.flipped, self.pictureFilename) + "\n"
 		i = self._savePointIter()
 		for linePoints in map(None, *(i, )*12):
@@ -896,7 +896,7 @@ class PolylineBase(Object):
 			self.backwardArrow = readArrow(params)
 			return True
 
-		if type(self) == PictureBBox and self.pictureFilename == None:
+		if isinstance(self, PictureBBox) and self.pictureFilename == None:
 			self.flipped = int(params[0])
 			self.pictureFilename = params[1]
 			return True
@@ -941,7 +941,7 @@ def _readPolylineBase(params):
 	subLines += (result._pointCount+5)/6 # sublines to read for the points
 	if result.closed():
 		result._pointCount -= 1
-	if type(result) == PictureBBox:
+	if isinstance(result, PictureBBox):
 		subLines += 1
 	return result, subLines
 
@@ -958,35 +958,35 @@ class PolyBox(PolylineBase):
 		self.points.append((x1, y2))
 
 	def polylineType(self):
-		"""Returns type of this polygon (ptBox for all `PolyBox` objects),
+		"""Return type of this polygon (ptBox for all `PolyBox` objects),
 		see `changeType`."""
 
 		return ptBox
 
 	def closed(self):
-		"""Returns whether this polygon is closed (True for all
+		"""Return whether this polygon is closed (True for all
 		`PolyBox` objects.)"""
 		return True
 
 	def center(self):
-		"""Returns (x, y) coordinate tuple of the midpoint of this box."""
+		"""Return (x, y) coordinate tuple of the midpoint of this box."""
 		return ((self.points[0][0] + self.points[2][0])/2,
 				(self.points[0][1] + self.points[2][1])/2)
 
 	def upperLeft(self):
-		"""Returns coordinates of upper left corner."""
+		"""Return coordinates of upper left corner."""
 		return self.points[0]
 	
 	def lowerRight(self):
-		"""Returns coordinates of lower right corner."""
+		"""Return coordinates of lower right corner."""
 		return self.points[2]
 	
 	def width(self):
-		"""Returns width of this box."""
+		"""Return width of this box."""
 		return abs(self.points[2][0] - self.points[0][0])
 
 	def height(self):
-		"""Returns height of this box."""
+		"""Return height of this box."""
 		return abs(self.points[2][1] - self.points[0][1])
 
 class ArcBox(PolyBox):
@@ -995,7 +995,7 @@ class ArcBox(PolyBox):
 	__slots__ = ()
 
 	def polylineType(self):
-		"""Returns type of this polygon (ptArcBox for all `ArcBox` objects),
+		"""Return type of this polygon (ptArcBox for all `ArcBox` objects),
 		see `changeType`."""
 
 		return ptArcBox
@@ -1012,13 +1012,13 @@ class Polygon(PolylineBase):
 			self.changeType(ptPolyline, retainPoints = True)
 
 	def polylineType(self):
-		"""Returns type of this polygon (ptPolygon for all `Polygon` objects),
+		"""Return type of this polygon (ptPolygon for all `Polygon` objects),
 		see `changeType`."""
 
 		return ptPolygon
 
 	def closed(self):
-		"""Returns whether this polygon is closed (True for all
+		"""Return whether this polygon is closed (True for all
 		`Polygon` objects.)"""
 		return True
 
@@ -1032,13 +1032,13 @@ class Polyline(PolylineBase):
 		self.points = points
 
 	def polylineType(self):
-		"""Returns type of this polygon (ptPolyline for all `Polyline`
+		"""Return type of this polygon (ptPolyline for all `Polyline`
 		objects), see `changeType`."""
 
 		return ptPolyline
 
 	def closed(self):
-		"""Returns whether this polygon is closed (False for all
+		"""Return whether this polygon is closed (False for all
 		`Polygon` objects.)"""
 
 		return False
@@ -1055,13 +1055,13 @@ class PictureBBox(PolyBox):
 		self.flipped = flipped
 
 	def polylineType(self):
-		"""Returns type of this polygon (ptPictureBBox for all
+		"""Return type of this polygon (ptPictureBBox for all
 		`PictureBBox` objects), see `changeType`."""
 
 		return ptPictureBBox
 
 	def closed(self):
-		"""Returns whether this polygon is closed (True for all
+		"""Return whether this polygon is closed (True for all
 		`PictureBBox` objects.)"""
 		return True
 
@@ -1082,7 +1082,7 @@ class SplineBase(Object):
 		self._closed = None
 
 	def closed(self):
-		"""Returns whether this spline curve is closed."""
+		"""Return whether this spline curve is closed."""
 		assert self._closed != None, "SplineBase.closed(): _closed not initialized!"
 		return self._closed
 
@@ -1137,12 +1137,15 @@ class SplineBase(Object):
 			result += "\t" + str(self.forwardArrow)
 		if hasBackwardArrow:
 			result += "\t" + str(self.backwardArrow)
+
 		i = self._savePointIter()
 		for linePoints in map(None, *(i, )*12):
 			result += "\t" + _join(*[p for p in linePoints if p != None]) + "\n"
+
 		i = iter(self.shapeFactors)
 		for lineSF in map(None, *(i, )*8):
 			result += "\t" + _join(*[str(sf) for sf in lineSF if sf != None]) + "\n"
+
 		return result
 
 	def _savePointIter(self):
@@ -1151,7 +1154,7 @@ class SplineBase(Object):
 			yield p[1]
 
 	def bounds(self):
-		"""Returns the bounds of this object.  This is not accurate at
+		"""Return the bounds of this object.  This is not accurate at
 		all, since it simply returns the bounding box of the support
 		points, but the curve may well run outside of that box."""
 		# FIXME
@@ -1332,7 +1335,7 @@ class _AllObjectIter(object):
 			raise StopIteration
 		try:
 			next = self.iters[-1].next()
-			if type(next) == Compound:
+			if isinstance(next, Compound):
 				self.iters.append(iter(next))
 				if self.includeCompounds:
 					return next
@@ -1361,7 +1364,7 @@ class Container(list):
 		return _AllObjectIter(self, includeCompounds)
 
 	def findObjects(self, **kwargs):
-		"""Returns a list of objects which have attribute/value pairs
+		"""Return a list of objects which have attribute/value pairs
 		matching the given keyword parameters.  The key "type" is
 		treated special, see these useful examples::
 
@@ -1424,7 +1427,7 @@ class Container(list):
 			list.remove(self, obj)
 		except ValueError:
 			for o in self:
-				if type(o) == Compound:
+				if isinstance(o, Compound):
 					try:
 						o.remove(obj)
 						return
@@ -1562,7 +1565,7 @@ class File(Container):
 			stack = []
 			currentObject = None
 			subLineExpected = 0
-			if type(inputFile) == str:
+			if isinstance(inputFile, str):
 				self.filename = inputFile
 				inputFile = file(inputFile).readlines()
 			elif hasattr(inputFile, "readlines"):
@@ -1592,11 +1595,11 @@ class File(Container):
 				elif lineIndex == 6:
 					self.transparentColor = int(line)
 				elif lineIndex == 7:
-					res, sysDummy = re.split(" +", line)
+					res, sysDummy = line.split()
 					self.ppi = int(res)
 				else:
 				  try:
-					params = re.split(" +", line)
+					params = line.split()
 					if subLineExpected:
 						subLineExpected = currentObject._readSub(params)
 					else:
@@ -1613,7 +1616,8 @@ class File(Container):
 						elif objectType == _figText:
 							assert line[-4:] == "\\001"
 							currentObject, subLineExpected = _readText(
-								params[1:], line.split(" ", 13)[-1][:-4])
+								params[1:], (
+								line.split(None, 12)[-1]).split(" ", 1)[1][:-4])
 						elif objectType == _figEllipse:
 							currentObject, subLineExpected = _readEllipseBase(params[1:])
 						elif objectType == _figCompoundBegin:
@@ -1640,14 +1644,16 @@ class File(Container):
 		be a `fig.Object`-derived object.  `CustomColor` objects are
 		appended to self.colors as if `addColor()` was called."""
 
-		if type(object) == CustomColor:
+		if isinstance(object, CustomColor):
 			self.addColor(object)
 		else:
 			Container.append(self, object)
 
 	def addColor(self, hexCode):
 		"""Adds a custom color to this document.  hexCode may be
-		either a hex code like #ffee00 or a CustomColor instance."""
+		either a hex code like #ffee00 or a CustomColor instance.
+		Returns the new `CustomColor` object.
+		See `getColor`, too."""
 
 		assert len(self.colors) < 512, \
 			   ".fig file format does not allow more than 512 custom colors!"
@@ -1663,7 +1669,7 @@ class File(Container):
 		return result
 
 	def getColor(self, color, similarity = None):
-		"""Returns a color object for the given color, adding a new
+		"""Return a color object for the given color, adding a new
 		custom color to this document if it does not yet exist.  The
 		color can be given as tuple of R,G,B values or as hex string
 		(e.g. (0, 255, 0) or '#00ff00' for green).  The range of valid
@@ -1680,47 +1686,59 @@ class File(Container):
 		magnitude is < `similarity`, if any (otherwise, it will call
 		`addColor()`, exactly as if similarity was not used).  This is
 		useful if you expect many thousands of slightly different
-		colors, which are not supported by XFig.
+		colors, which are not supported by XFig (the current format
+		supports 512 custom colors).
 
-		If `similarity` is given, but not > 0.0, `addColor()` will not be
-		called, but a `KeyError` will be raised, if the exact color
-		cannot be returned."""
+		If `similarity` is given, but not > 0.0, `addColor()` will
+		*not* be called, but a `KeyError` will be raised, if the exact
+		color cannot be returned."""
 
 		inputGiven = color
-		if type(color) == float: # accept grayvalues as float (0..1)
-			color = int(round(color*255))
-		if type(color) == int: # accept grayvalues as int (0..255)
+
+		# convert grayvalues to RGB triples:
+		if isinstance(color, (float, int)):
 			color = (color, color, color)
-		if type(color) == types.TupleType: # accept colors as 3-tuple of (0..255)
-			if type(color[0]) == float:
+
+		# accept colors as 3-tuples of (0..255)
+		if isinstance(color, tuple):
+			# convert 0..1 floats to 0..255 integers:
+			if isinstance(color[0], float):
 				color = (int(round((color[0]*255))),
 						 int(round((color[1]*255))),
 						 int(round((color[2]*255))))
 			color = "#%02x%02x%02x" % color
-		if type(color) != types.StringType: # accept RGB color objects
+
+		# accept any iterable RGB color objects, too:
+		if not isinstance(color, str):
 			color = "#%02x%02x%02x" % tuple(color)
+
 		assert len(color) == 7, \
 			   "too large values given for red, green, or blue: %s" % (inputGiven, )
-		try:
-			return self._colorhash[color]
-		except KeyError:
-			if similarity != None:
-				if not similarity > 0.0:
-					raise # if similarity <= 0.0, don't add color
 
-				if self.colors: # don't choke when there are no colors yet
-					def rgbDiffSortTuple(otherRGB,
-										 searchRGB = CustomColor(None, color)):
-						return sum(map(lambda x: x*x, searchRGB-otherRGB)), otherRGB
-					matches = map(rgbDiffSortTuple, self.colors)
-					matches.sort()
-					bestSqDiff, bestColor = matches[0]
-					if bestSqDiff < similarity*similarity:
-						return bestColor
+		result = self._colorhash.get(color, None)
+		if result != None:
+			return result
+
+		if similarity == None:
 			return self.addColor(color)
 
+		if not similarity > 0.0:
+			raise KeyError("getColor(%s): no similar color found" % color)
+
+		if self.colors: # don't choke when there are no colors yet
+			def rgbDiffSortTuple(otherRGB,
+								 searchRGB = CustomColor(None, color)):
+				return sum(map(lambda x: x*x, searchRGB-otherRGB)), otherRGB
+			matches = map(rgbDiffSortTuple, self.colors)
+			matches.sort()
+			bestSqDiff, bestColor = matches[0]
+			if bestSqDiff < similarity*similarity:
+				return bestColor
+
+		return self.addColor(color)
+
 	def colorRGB(self, colorIndex):
-		"""Returns a the R,G,B tuple for the given color index."""
+		"""Return a the R,G,B tuple for the given color index."""
 		
 		assert colorIndex >= 0 and colorIndex < colorCustom0 + len(self.colors), \
 			   "invalid color index"
@@ -1730,14 +1748,14 @@ class File(Container):
 			return self.colors[colorIndex - colorCustom0].rgb()
 
 	def gray(self, grayLevel):
-		"""Returns a color representing the given graylevel (see
+		"""Return a color representing the given graylevel (see
 		getColor).  grayLevel can be a float in the range 0.0 - 1.0 or
 		a 0 - 255 integer."""
 		
 		return self.getColor((grayLevel, grayLevel, grayLevel))
 
 	def headerStr(self):
-		"""Returns the first lines of the XFig file output, which contain
+		"""Return the first lines of the XFig file output, which contain
 		global document information like orientation / units / ..."""
 		
 		result = "#FIG 3.2\n"
@@ -1773,7 +1791,7 @@ class File(Container):
 		return "".join(map(str, self))
 
 	def __str__(self):
-		"""Returns the contents of this file in the XFig file format as string.
+		"""Return the contents of this file as string in the XFig file format.
 		See save()."""
 		
 		assert len(self.colors) < 512, \
