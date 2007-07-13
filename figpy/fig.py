@@ -344,6 +344,8 @@ class Rect(object):
 	
 	def __call__(self, other):
 		if isinstance(other, Rect):
+			if other.empty:
+				return
 			self.__call__((other.x1, other.y1))
 			self.__call__((other.x2, other.y2))
 		else:
@@ -1508,6 +1510,9 @@ class Compound(Container):
 			parent.append(self)
 
 	def bounds(self):
+		if self._bounds.empty():
+			for o in self:
+				self._bounds(object.bounds())
 		return self._bounds
 
 	def append(self, object):
@@ -1520,9 +1525,10 @@ class Compound(Container):
 		result = ""
 		for o in self:
 			result += str(o)
+		b = self.bounds()
 		return _join(_figCompoundBegin,
-					 int(self._bounds.x1), int(self._bounds.y1),
-					 int(self._bounds.x2), int(self._bounds.y2)) + "\n" + \
+					 int(b.x1), int(b.y1),
+					 int(b.x2), int(b.y2)) + "\n" + \
 			   result + str(_figCompoundEnd) + "\n"
 
 def _readCompound(params):
@@ -1811,13 +1817,21 @@ class File(Container):
 
 		If filename is not given, and figfile was constructed from an
 		existing file, that one is overwritten (-> figfile.filename).
-		(The filename becomes the new figfile.filename.)"""
+		If the filename does not end in '.fig', the extension is
+		appended.
+		
+		After saving, the filename becomes the new figfile.filename
+		and would be used for the next save() without filename."""
 
 		if filename != None:
+			if not filename.endswith(".fig"):
+				filename += ".fig"
 			self.filename = filename
 		assert self.filename, "figfile.save() needs a filename!"
 
+		# construct whole string in memory for exception safety:
 		output = str(self)
+		# everything's fine, *now* write to file:
 		file(self.filename, "w").write(output)
 
 		if fig2dev:
@@ -1864,7 +1878,7 @@ class File(Container):
 			os.chdir(path)
 
 		try:
-			cin, cout = os.popen4("fig2dev -L %s -p dummy '%s' '%s'" % (
+			cin, cout = os.popen4("fig2dev -L %s '%s' '%s'" % (
 				lang, basename, output))
 			cin.close()
 			sys.stdout.write(cout.read())
