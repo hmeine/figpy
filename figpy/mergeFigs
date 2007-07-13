@@ -30,7 +30,7 @@ for o in fileB.allObjects():
 	if o.fillColor >= fig.colorCustom0:
 		o.fillColor = colorMap[int(o.fillColor)]
 
-for o in fileB.objects:
+for o in fileB.allObjects():
 	fileA.append(o)
 
 outFile.write(str(fileA))
