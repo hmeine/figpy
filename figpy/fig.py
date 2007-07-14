@@ -1465,6 +1465,17 @@ class Container(list):
 						pass
 			raise ValueError("remove(): Given object not found in Container.")
 
+	def bounds(self):
+		"""Return the union of all bounding boxes of the contained
+		objects.  This value is not cached (because it cannot be
+		reliably updated if childrens change) but will be determined
+		on each call."""
+		
+		result = Rect()
+		for object in self:
+			result(object.bounds())
+		return result
+
 class ObjectProxy(Container):
 	"""An ObjectProxy is a special `Container` that is used for search
 	results (see `Container.findObjects`) which offers two additional
@@ -1536,12 +1547,6 @@ class Compound(Container):
 		Container.__init__(self)
 		if parent != None:
 			parent.append(self)
-
-	def bounds(self):
-		result = Rect()
-		for object in self:
-			result(object.bounds())
-		return result
 
 	def __deepcopy__(self, memo):
 		result = Compound()
