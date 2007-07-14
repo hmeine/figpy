@@ -1530,28 +1530,18 @@ class ObjectProxy(Container):
 class Compound(Container):
 	"""Represents a group of XFig objects."""
 
-	__slots__ = ("_bounds", )
+	__slots__ = ()
 	
 	def __init__(self, parent = None):
 		Container.__init__(self)
-		self._bounds = Rect()
 		if parent != None:
 			parent.append(self)
 
 	def bounds(self):
-		if self._bounds.empty():
-			for o in self:
-				self._bounds(object.bounds())
-		return self._bounds
-
-	def append(self, object):
-		super(Compound, self).append(object)
-		self._bounds(object.bounds())
-
-	def extend(self, seq):
-		super(Compound, self).extend(seq)
-		for o in seq:
-			self._bounds(o.bounds())
+		result = Rect()
+		for object in self:
+			result(object.bounds())
+		return result
 
 	def __deepcopy__(self, memo):
 		result = Compound()
@@ -1572,12 +1562,9 @@ class Compound(Container):
 			   result + str(_figCompoundEnd) + "\n"
 
 def _readCompound(params):
-	result = Compound()
-	result._bounds.x1 = int(params[0])
-	result._bounds.y1 = int(params[1])
-	result._bounds.x2 = int(params[2])
-	result._bounds.y2 = int(params[3])
-	return result
+	# ignore bounds passed in params, since we cannot guarantee proper
+	# updating later:
+	return Compound()
 
 # --------------------------------------------------------------------
 #                                file
