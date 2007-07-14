@@ -10,7 +10,7 @@ __author__ = "Hans Meine <hans_meine@gmx.net>"
 __version__ = "$Id$" \
 			  .split(" ")[2:-2]
 
-import sys, re, math, types, os, operator
+import sys, re, math, types, os, operator, copy
 
 #{ object codes
 _figCustomColor   = 0
@@ -321,10 +321,10 @@ class Rect(object):
 	Rectangles (e.g. used for bounding boxes).  If you are looking for
 	a rectangular figure object, `PolyBox` is your friend.
 
-	A Rect object has the properties `x1`, `x2`, `y1`, `y2` carrying the
-	coordinates, and accessor functions `width()`, `height()`,
-	`upperLeft()`, `lowerRight()`, `size()`.  (The latter return pairs of
-	coordinates.)
+	A Rect object has the properties `x1`, `x2`, `y1`, `y2` carrying
+	the coordinates, and accessor functions `width()`, `height()`,
+	`upperLeft()`, `lowerRight()`, `center()`, `size()`.  (The latter
+	return pairs of coordinates.)
 
 	A special facility is the __call__ operator for adding
 	points/rects (sort of a UNION operation).
@@ -363,6 +363,17 @@ class Rect(object):
 				self.y1 = min(self.y1, other[1])
 				self.x2 = max(self.x2, other[0])
 				self.y2 = max(self.y2, other[1])
+
+	def contains(self, other):
+		"""Return True iff other is a Rect or point that is entirely
+		within this Rect.  (Points on the border are considered to be
+		contained.)"""
+		if isinstance(other, Rect):
+			return other.empty() or (
+				self.contains(other.upperLeft()) and
+				self.contains(other.lowerRight()))
+		return ((self.x1 <= other[0]) and (self.y1 <= other[1]) and
+				(other[0] <= self.x2) and (other[1] <= self.y2))
 	
 	def width(self):
 		return self.x2 - self.x1
@@ -384,6 +395,9 @@ class Rect(object):
 
 	def empty(self):
 		return self._empty
+
+	def __mul__(self, factor):
+		return Rect(*map(lambda x: x*factor, self))
 	
 	def __repr__(self):
 		return "fig.Rect(%d,%d,%d,%d)" % (self.x1, self.y1, self.x2, self.y2)
@@ -1392,12 +1406,16 @@ class Container(list):
 		result.parent = self
 		for o in self.allObjects("type" in kwargs and kwargs["type"] == Compound):
 			match = True
-			for key in kwargs:
+			for key, value in kwargs.items():
 				if key == "type":
-					if not isinstance(o, kwargs[key]):
+					if not isinstance(o, value):
 						match = False
 						break
-				elif getattr(o, key, "attribNotPresent") != kwargs[key]:
+				elif key == "within":
+					if not value.contains(o.bounds()):
+						match = False
+						break
+				elif getattr(o, key, "attribNotPresent") != value:
 					match = False
 					break
 			if match:
@@ -1421,6 +1439,10 @@ class Container(list):
 		
 		result = dict.fromkeys([ob.depth for ob in self.allObjects()]).keys()
 		result.sort()
+		return result
+
+	def __deepcopy__(self, memo):
+		result = type(self)([copy.deepcopy(o, memo) for o in self])
 		return result
 
 	def remove(self, obj):
@@ -1525,6 +1547,17 @@ class Compound(Container):
 	def append(self, object):
 		super(Compound, self).append(object)
 		self._bounds(object.bounds())
+
+	def extend(self, seq):
+		super(Compound, self).extend(seq)
+		for o in seq:
+			self._bounds(o.bounds())
+
+	def __deepcopy__(self, memo):
+		result = Compound()
+		for o in self:
+			result.append(copy.deepcopy(o, memo))
+		return result
 
 	def __str__(self):
 		if len(self) < 1:
