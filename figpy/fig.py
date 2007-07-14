@@ -332,29 +332,32 @@ class Rect(object):
 	Finally, it is possible to do::
 	
 	  x1, y1, x2, y2 = someRect"""
+
+	__slots__ = ("x1", "y1", "x2", "y2",
+				 "_empty")
 	
 	def __init__(self, *args):
 		assert len(args) in (0, 4), \
 			   "Rect.__init__() expecting zero or four parameters!"
 		if len(args) == 4:
 			self.x1, self.y1, self.x2, self.y2 = args
-			self.empty = False
+			self._empty = False
 		else:
-			self.empty = True
+			self._empty = True
 	
 	def __call__(self, other):
 		if isinstance(other, Rect):
-			if other.empty:
+			if other._empty:
 				return
 			self.__call__((other.x1, other.y1))
 			self.__call__((other.x2, other.y2))
 		else:
-			if self.empty:
+			if self._empty:
 				self.x1 = other[0]
 				self.x2 = other[0]
 				self.y1 = other[1]
 				self.y2 = other[1]
-				self.empty = False
+				self._empty = False
 			else:
 				self.x1 = min(self.x1, other[0])
 				self.y1 = min(self.y1, other[1])
@@ -378,6 +381,9 @@ class Rect(object):
 	
 	def size(self):
 		return self.width(), self.height()
+
+	def empty(self):
+		return self._empty
 	
 	def __repr__(self):
 		return "fig.Rect(%d,%d,%d,%d)" % (self.x1, self.y1, self.x2, self.y2)
@@ -1484,7 +1490,8 @@ class ObjectProxy(Container):
 		container.  Else, remove given object from this container."""
 		
 		if not args:
-			assert self.parent, "ObjectProxy.remove() needs access to the parent"
+			assert self.parent != None, \
+				   "ObjectProxy.remove() needs access to the parent"
 			for ob in self:
 				self.parent.remove(ob)
 		else:
