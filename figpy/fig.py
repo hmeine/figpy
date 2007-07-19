@@ -316,6 +316,52 @@ def parseGeometry(geometryString):
 		else:
 			return Rect(x1, y1, vx2, vy2)
 
+class Vector(object):
+	__slots__ = ("x", "y")
+	
+	def __init__(self, x, y):
+		self.x = x
+		self.y = y
+
+	def __getitem__(self, index):
+		if index == 0 or index == -2:
+			return self.x
+		if index == 1 or index == -1:
+			return self.y
+		raise IndexError("Vector only has two components")
+
+	def __mul__(self, s):
+		return Vector(self[0]*s, self[1]*s)
+
+	__rmul__ = __mul__
+
+	def __div__(self, s):
+		return Vector(self[0]/s, self[1]/s)
+
+	def __add__(self, other):
+		return Vector(self[0]+other[0], self[1]+other[1])
+
+	def __sub__(self, other):
+		return Vector(self[0]-other[0], self[1]-other[1])
+
+	def dot(self, other):
+		return self[0]*other[0] + self[1]*other[1]
+
+	def length2(self):
+		return self.dot(self)
+
+	def length(self):
+		return math.sqrt(self.length2())
+
+	def normalized(self):
+		return self / self.length()
+
+	def dist(self, other):
+		return (self - other).length()
+
+	def __repr__(self):
+		return "fig.Vector(%s, %s)" % (self.x, self.y)
+
 class Rect(object):
 	"""This is a simple, half-internal helper class for handling
 	Rectangles (e.g. used for bounding boxes).  If you are looking for
@@ -523,7 +569,7 @@ class Arrow(object):
 	__slots__ = ("type", "style", "thickness", "width", "height")
 	
 	def __init__(self, type = arStick, style = asHollow,
-				 thickness = 1.0, width = 4.0, height = 8.0):
+				 thickness = 1.0, width = 60.0, height = 120.0):
 		self.type = type
 		self.style = style
 		self.thickness = thickness
@@ -548,11 +594,39 @@ class ArcBase(Object):
 
 	__slots__ = ("points", "direction", "center", "_pointCount")
 	
-	def __init__(self):
+	def __init__(self, center = None, point1 = None, point2 = None,
+				 direction = adClockwise):
 		Object.__init__(self)
-		self.points = []
-		self.center = None
-		self.direction = adClockwise
+		self.center = center
+		if center != None:
+			angle1 = math.atan2(-(point1[1] - center[1]),
+								point1[0] - center[0])
+			angle2 = math.atan2(-(point2[1] - center[1]),
+								point2[0] - center[0])
+			angle12 = angle1 + self._angleDiff(angle2, angle1, direction) / 2
+			print math.degrees(angle1), math.degrees(angle12), math.degrees(angle2)
+			c = Vector(*center)
+			point12 = c + (c - point1).length()*Vector( math.cos(angle12),
+													   -math.sin(angle12))
+			self.points = [point1, point12, point2]
+		else:
+			assert point1 == None and point2 == None
+			self.points = None
+		self.direction = direction
+
+	def _angleDiff(self, angle2, angle1, direction):
+		result = angle2 - angle1
+		if direction == adClockwise:
+			while result > 0:
+				result -= 2*math.pi
+			if result <= -2*math.pi:
+				result += 2*math.pi
+		else:
+			while result < 0:
+				result += 2*math.pi
+			if result > 2*math.pi:
+				result -= 2*math.pi
+		return result
 
 	def changeType(self, arcType):
 		"Change type of this Arc. arcType may be one of atPie or atOpen"
@@ -562,6 +636,7 @@ class ArcBase(Object):
 			self.__class__ = OpenArc
 
 	def __str__(self):
+		assert len(self.points) == 3
 		hasForwardArrow = (self.forwardArrow != None and 1 or 0)
 		hasBackwardArrow = (self.backwardArrow != None and 1 or 0)
 		
@@ -1281,12 +1356,10 @@ class Text(Object):
 	- fontSize (defailt: 12)
 	- fontAngle (default: 0.0)
 	- fontFlags (cf. `ffXXX` constants, default: ffPostScript)
-	- length, height (dummy values, no guarantee about correctness)
 	"""
 
 	__slots__ = ("text", "x", "y", "alignment",
-				 "font", "fontSize", "fontAngle", "fontFlags",
-				 "length", "height")
+				 "font", "fontSize", "fontAngle", "fontFlags")
 
 	def __init__(self, x, y, text, alignment = alignLeft):
 		Object.__init__(self)
@@ -1295,30 +1368,36 @@ class Text(Object):
 		self.fontSize = 12
 		self.fontAngle = 0.0
 		self.fontFlags = ffPostScript
-		self.height = 136
-		self.length = 100 # dummy value
 		self.x = x
 		self.y = y
 		self.alignment = alignment
 
+	def height(self):
+		"""Guessed height of font in fig units."""
+		return self.fontSize*34/3
+
+	def _length(self):
+		"""FIXME: If this is corrected, remove underscore prefix."""
+		return 100
+
 	def bounds(self):
 		result = Rect()
 		if self.alignment == alignLeft:
-			result((self.x,               self.y - self.height))
-			result((self.x + self.length, self.y))
+			result((self.x,                  self.y - self.height()))
+			result((self.x + self._length(), self.y))
 		elif self.alignment == alignCentered:
-			result((self.x - self.length/2, self.y - self.height))
-			result((self.x + self.length/2, self.y))
+			result((self.x - self._length()/2, self.y - self.height()))
+			result((self.x + self._length()/2, self.y))
 		elif self.alignment == alignRight:
-			result((self.x,               self.y - self.height))
-			result((self.x + self.length, self.y))
+			result((self.x,                  self.y - self.height()))
+			result((self.x + self._length(), self.y))
 		return result
 
 	def __str__(self):
 		result = _join(_figText, self.alignment,
 					   self.penColor, self.depth, self.penStyle,
 					   self.font, self.fontSize, str(self.fontAngle), self.fontFlags,
-					   self.height, self.length, self.x, self.y,
+					   self.height(), self._length(), self.x, self.y,
 					   self.text + "\\001") + "\n"
 
 		return result
