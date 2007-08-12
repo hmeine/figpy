@@ -1356,10 +1356,12 @@ class Text(Object):
 	- fontSize (defailt: 12)
 	- fontAngle (default: 0.0)
 	- fontFlags (cf. `ffXXX` constants, default: ffPostScript)
+	- length, height (dummy values, no guarantee about correctness)
 	"""
 
 	__slots__ = ("text", "x", "y", "alignment",
-				 "font", "fontSize", "fontAngle", "fontFlags")
+				 "font", "fontSize", "fontAngle", "fontFlags",
+				 "length", "height")
 
 	def __init__(self, x, y, text, alignment = alignLeft):
 		Object.__init__(self)
@@ -1368,11 +1370,13 @@ class Text(Object):
 		self.fontSize = 12
 		self.fontAngle = 0.0
 		self.fontFlags = ffPostScript
+		self.height = 136
+		self.length = 100 # dummy value
 		self.x = x
 		self.y = y
 		self.alignment = alignment
 
-	def height(self):
+	def _guessHeight(self):
 		"""Guessed height of font in fig units."""
 		return self.fontSize*34/3
 
@@ -1383,21 +1387,21 @@ class Text(Object):
 	def bounds(self):
 		result = Rect()
 		if self.alignment == alignLeft:
-			result((self.x,                  self.y - self.height()))
-			result((self.x + self._length(), self.y))
+			result((self.x,                  self.y - self.height))
+			result((self.x + self.length, self.y))
 		elif self.alignment == alignCentered:
-			result((self.x - self._length()/2, self.y - self.height()))
-			result((self.x + self._length()/2, self.y))
+			result((self.x - self.length/2, self.y - self.height))
+			result((self.x + self.length/2, self.y))
 		elif self.alignment == alignRight:
-			result((self.x,                  self.y - self.height()))
-			result((self.x + self._length(), self.y))
+			result((self.x,                  self.y - self.height))
+			result((self.x + self.length, self.y))
 		return result
 
 	def __str__(self):
 		result = _join(_figText, self.alignment,
 					   self.penColor, self.depth, self.penStyle,
 					   self.font, self.fontSize, str(self.fontAngle), self.fontFlags,
-					   self.height(), self._length(), self.x, self.y,
+					   self.height, self.length, self.x, self.y,
 					   self.text + "\\001") + "\n"
 
 		return result
@@ -1412,6 +1416,7 @@ def _readText(params, text):
 	result.fontSize = float(params[5])
 	result.fontAngle = float(params[6])
 	result.fontFlags = int(params[7])
+	#print float(params[8])/result.fontSize, float(params[9])/len(result.text)
 	result.height = float(params[8])
 	result.length = float(params[9])
 	return result, 0
@@ -2020,6 +2025,21 @@ class File(Container):
 		self.save(basename + ".fig", fig2dev = "eps")
 
 		return basename
+
+# --------------------------------------------------------------------
+
+def copyObjects(fileA, fileB):
+	colorMap = {}
+	for i in range(len(fileA.colors)):
+		colorMap[int(fileA.colors[i])] = fileB.getColor(fileA.colors[i].hexCode)
+
+	for o in fileA.allObjects():
+		o = copy.deepcopy(o)
+		if o.penColor >= colorCustom0:
+			o.penColor = colorMap[int(o.penColor)]
+		if o.fillColor >= colorCustom0:
+			o.fillColor = colorMap[int(o.fillColor)]
+		fileB.append(o)
 
 # --------------------------------------------------------------------
 #                              TESTING:
