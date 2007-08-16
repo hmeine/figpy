@@ -1691,7 +1691,7 @@ class File(Container):
 		self.filename = None
 
 		if inputFile == None:
-			self.comment = "#FIG 3.2\n"
+			self.comment = ""
 			self.landscape = False
 			self.centered = True
 			self.metric = True
@@ -1718,7 +1718,8 @@ class File(Container):
 			filename = self.filename and "'%s'" % self.filename or "<unnamed>"
 			for line in inputFile:
 				if line.startswith("#"):
-					currentComment += line[1:]
+					if lineIndex:
+						currentComment += line[1:]
 					extraLineCount += 1
 					continue
 				line = line.strip()
@@ -1918,7 +1919,7 @@ class File(Container):
 		"""Return the first lines of the XFig file output, which contain
 		global document information like orientation / units / ..."""
 		
-		result = _formatComment(self.comment)
+		result = "#FIG 3.2\n"
 		if self.landscape:
 			result += "Landscape\n"
 		else:
@@ -1938,6 +1939,7 @@ class File(Container):
 		else:
 			result += "Multiple\n"
 		result += str(self.transparentColor) + "\n"
+		result += _formatComment(self.comment)
 		result += str(self.ppi) + " 2\n" # (2: only used coordinate system)
 		return result
 
