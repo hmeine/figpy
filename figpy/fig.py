@@ -2030,8 +2030,8 @@ class File(Container):
 
 def copyObjects(fileA, fileB):
 	colorMap = {}
-	for i in range(len(fileA.colors)):
-		colorMap[int(fileA.colors[i])] = fileB.getColor(fileA.colors[i].hexCode)
+	for color in fileA.colors:
+		colorMap[int(color)] = fileB.getColor(color.hexCode)
 
 	for o in fileA.allObjects():
 		o = copy.deepcopy(o)
