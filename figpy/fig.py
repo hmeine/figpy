@@ -274,6 +274,16 @@ def _join(*sequence):
 			parts.append(str(item))
 	return " ".join(parts)
 
+def _formatComment(comment):
+	if not comment:
+		return ""
+	result = ["#" + c for c in comment.split("\n")]
+	if result[-1] == "#":
+		result[-1] = ""
+	else:
+		result.append("")
+	return "\n".join(result)
+
 _re_size = re.compile("([0-9]+)x([0-9]+)")
 _re_geometry = re.compile("([0-9]+)[:,]([0-9]+)([+-:,])([0-9]+)([x:,])([0-9]+)")
 
@@ -536,7 +546,7 @@ class Object(object):
 
 	__slots__ = ("lineStyle", "lineWidth", "penColor", "fillColor", "depth",
 				 "penStyle", "fillStyle", "styleValue", "joinStyle", "capStyle",
-				 "forwardArrow", "backwardArrow")
+				 "forwardArrow", "backwardArrow", "comment")
 
 	def __init__(self):
 		self.lineStyle = lineStyleDefault
@@ -554,6 +564,7 @@ class Object(object):
 		self.capStyle = 0
 		self.forwardArrow = None
 		self.backwardArrow = None
+		self.comment = ""
 
 class Arrow(object):
 	"""Arrow objects store arrow parameters of other objects.
@@ -640,7 +651,8 @@ class ArcBase(Object):
 		hasForwardArrow = (self.forwardArrow != None and 1 or 0)
 		hasBackwardArrow = (self.backwardArrow != None and 1 or 0)
 		
-		result = _join(_figArc, self.arcType(),
+		result = _formatComment(self.comment) + \
+				 _join(_figArc, self.arcType(),
 					   self.lineStyle, self.lineWidth,
 					   self.penColor, self.fillColor,
 					   self.depth, self.penStyle,
@@ -757,7 +769,8 @@ class EllipseBase(Object):
 			raise ValueError("Unknown ellipseType %d!" % ellipseType)
 
 	def __str__(self):
-		return _join(_figEllipse, self.ellipseType(),
+		return _formatComment(self.comment) + \
+			   _join(_figEllipse, self.ellipseType(),
 					 self.lineStyle, self.lineWidth,
 					 self.penColor, self.fillColor,
 					 self.depth, self.penStyle,
@@ -950,7 +963,8 @@ class PolylineBase(Object):
 		hasForwardArrow = (self.forwardArrow != None and 1 or 0)
 		hasBackwardArrow = (self.backwardArrow != None and 1 or 0)
 		
-		result = _join(_figPolygon, self.polylineType(),
+		result = _formatComment(self.comment) + \
+				 _join(_figPolygon, self.polylineType(),
 					   self.lineStyle, self.lineWidth,
 					   self.penColor, self.fillColor,
 					   self.depth, self.penStyle,
@@ -1222,7 +1236,8 @@ class SplineBase(Object):
 		hasForwardArrow = (self.forwardArrow != None and 1 or 0)
 		hasBackwardArrow = (self.backwardArrow != None and 1 or 0)
 
-		result = _join(_figSpline, self.splineType(),
+		result = _formatComment(self.comment) + \
+				 _join(_figSpline, self.splineType(),
 					   self.lineStyle, self.lineWidth,
 					   self.penColor, self.fillColor,
 					   self.depth, self.penStyle,
@@ -1398,7 +1413,8 @@ class Text(Object):
 		return result
 
 	def __str__(self):
-		result = _join(_figText, self.alignment,
+		result = _formatComment(self.comment) + \
+				 _join(_figText, self.alignment,
 					   self.penColor, self.depth, self.penStyle,
 					   self.font, self.fontSize, str(self.fontAngle), self.fontFlags,
 					   self.height, self.length, self.x, self.y,
@@ -1625,10 +1641,11 @@ class ObjectProxy(Container):
 class Compound(Container):
 	"""Represents a group of XFig objects."""
 
-	__slots__ = ()
+	__slots__ = ("comment", )
 	
 	def __init__(self, parent = None):
 		Container.__init__(self)
+		self.comment = ""
 		if parent != None:
 			parent.append(self)
 
@@ -1641,14 +1658,15 @@ class Compound(Container):
 	def __str__(self):
 		if len(self) < 1:
 			return ""
-		result = ""
+		contents = ""
 		for o in self:
-			result += str(o)
+			contents += str(o)
 		b = self.bounds()
-		return _join(_figCompoundBegin,
+		return _formatComment(self.comment) + \
+			   _join(_figCompoundBegin,
 					 int(b.x1), int(b.y1),
 					 int(b.x2), int(b.y2)) + "\n" + \
-			   result + str(_figCompoundEnd) + "\n"
+			   contents + str(_figCompoundEnd) + "\n"
 
 def _readCompound(params):
 	# ignore bounds passed in params, since we cannot guarantee proper
@@ -1662,7 +1680,7 @@ def _readCompound(params):
 class File(Container):
 	"""Main class of the `fig` module, represents an XFig document."""
 
-	__slots__ = ("landscape", "centered", "metric", "paperSize",
+	__slots__ = ("comment", "landscape", "centered", "metric", "paperSize",
 				 "magnification", "singlePage", "transparentColor", "ppi",
 				 "filename", "colors", "_colorhash")
 	
@@ -1673,6 +1691,7 @@ class File(Container):
 		self.filename = None
 
 		if inputFile == None:
+			self.comment = "#FIG 3.2\n"
 			self.landscape = False
 			self.centered = True
 			self.metric = True
@@ -1683,9 +1702,10 @@ class File(Container):
 			self.ppi = 1200 # figure units per inch
 		else:
 			lineIndex = 0
-			commentCount = 0
+			extraLineCount = 0
 			stack = []
 			currentObject = None
+			currentComment = ""
 			subLineExpected = 0
 			if isinstance(inputFile, str):
 				self.filename = inputFile
@@ -1697,9 +1717,13 @@ class File(Container):
 			# for error messages:
 			filename = self.filename and "'%s'" % self.filename or "<unnamed>"
 			for line in inputFile:
+				if line.startswith("#"):
+					currentComment += line[1:]
+					extraLineCount += 1
+					continue
 				line = line.strip()
-				if line.startswith("#") or not line:
-					commentCount += 1
+				if not line:
+					extraLineCount += 1
 					continue
 				#print line
 				if lineIndex == 0:
@@ -1719,6 +1743,8 @@ class File(Container):
 				elif lineIndex == 7:
 					res, sysDummy = line.split()
 					self.ppi = int(res)
+					self.comment = currentComment
+					currentComment = ""
 				else:
 				  try:
 					params = line.split()
@@ -1731,19 +1757,31 @@ class File(Container):
 							self.addColor(CustomColor(int(params[1]), params[2]))
 						elif objectType == _figPolygon:
 							currentObject, subLineExpected = _readPolylineBase(params[1:])
+							currentObject.comment = currentComment
+							currentComment = ""
 						elif objectType == _figArc:
 							currentObject, subLineExpected = _readArcBase(params[1:])
+							currentObject.comment = currentComment
+							currentComment = ""
 						elif objectType == _figSpline:
 							currentObject, subLineExpected = _readSplineBase(params[1:])
+							currentObject.comment = currentComment
+							currentComment = ""
 						elif objectType == _figText:
 							assert line[-4:] == "\\001"
 							currentObject, subLineExpected = _readText(
 								params[1:], (
 								line.split(None, 12)[-1]).split(" ", 1)[1][:-4])
+							currentObject.comment = currentComment
+							currentComment = ""
 						elif objectType == _figEllipse:
 							currentObject, subLineExpected = _readEllipseBase(params[1:])
+							currentObject.comment = currentComment
+							currentComment = ""
 						elif objectType == _figCompoundBegin:
 							stack.append(_readCompound(params[1:]))
+							stack[-1].comment = currentComment
+							currentComment = ""
 						elif objectType == _figCompoundEnd:
 							currentObject = stack.pop()
 						else:
@@ -1757,7 +1795,7 @@ class File(Container):
 						currentObject = None
 				  except ValueError:
 					  sys.stderr.write("Parse error in %s, line %i:\n%s\n\n" %
-									   (filename, lineIndex + commentCount + 1, line))
+									   (filename, lineIndex + extraLineCount + 1, line))
 					  raise
 				lineIndex += 1
 
@@ -1880,7 +1918,7 @@ class File(Container):
 		"""Return the first lines of the XFig file output, which contain
 		global document information like orientation / units / ..."""
 		
-		result = "#FIG 3.2\n"
+		result = _formatComment(self.comment)
 		if self.landscape:
 			result += "Landscape\n"
 		else:
@@ -2050,7 +2088,6 @@ if __name__ == "__main__":
 		def normalize(text):
 			result = []
 			for line in text.split("\n"):
-				if line and line[0] == "#": continue
 				# canonical float representation:
 				result.append(re.sub(r"(\.[0-9]+?)0*\b", r"\1", line.strip()))
 			return result
