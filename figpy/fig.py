@@ -609,21 +609,20 @@ class ArcBase(Object):
 				 direction = adClockwise):
 		Object.__init__(self)
 		self.center = center
-		if center != None:
-			angle1 = math.atan2(-(point1[1] - center[1]),
-								point1[0] - center[0])
-			angle2 = math.atan2(-(point2[1] - center[1]),
-								point2[0] - center[0])
-			angle12 = angle1 + self._angleDiff(angle2, angle1, direction) / 2
-			print math.degrees(angle1), math.degrees(angle12), math.degrees(angle2)
-			c = Vector(*center)
-			point12 = c + (c - point1).length()*Vector( math.cos(angle12),
-													   -math.sin(angle12))
-			self.points = [point1, point12, point2]
-		else:
-			assert point1 == None and point2 == None
-			self.points = None
+		self.points = None
 		self.direction = direction
+		if center == None:
+			assert point1 == None and point2 == None
+			return
+
+		# calculate midpoint between start- and end-point on arc
+		self.points = [point1, None, point2]
+		angle1, angle2 = self.angles()
+		angle12 = angle1 + self._angleDiff(angle2, angle1, direction) / 2
+		c = Vector(*center)
+		self.points[1] = \
+			c + (c - point1).length()*Vector( math.cos(angle12),
+											 -math.sin(angle12))
 
 	def _angleDiff(self, angle2, angle1, direction):
 		result = angle2 - angle1
@@ -638,6 +637,19 @@ class ArcBase(Object):
 			if result > 2*math.pi:
 				result -= 2*math.pi
 		return result
+
+	def angles(self):
+		"""Return start- and end-angle (in radians)."""
+		point1, _, point2 = self.points
+		angle1 = math.atan2(-(point1[1] - self.center[1]),
+							  point1[0] - self.center[0])
+		angle2 = math.atan2(-(point2[1] - self.center[1]),
+							  point2[0] - self.center[0])
+		return angle1, angle2
+
+	def radius(self):
+		"""Return distance of first point from center"""
+		return (Vector(*self.center) - self.points[0]).length()
 
 	def changeType(self, arcType):
 		"Change type of this Arc. arcType may be one of atPie or atOpen"
@@ -697,6 +709,11 @@ class PieArc(ArcBase):
 		"Return type of this Arc (atPie), see `changeType`."
 		return atPie
 
+	def closed(self):
+		"""Return whether this arc is closed (True for all
+		`PieArc` objects.)"""
+		return True
+
 class OpenArc(ArcBase):
 	"""Represents an open arc object."""
 
@@ -705,6 +722,11 @@ class OpenArc(ArcBase):
 	def arcType(self):
 		"Return type of this Arc (atOpen), see `changeType`."
 		return atOpen
+
+	def closed(self):
+		"""Return whether this arc is closed (False for all
+		`OpenArc` objects.)"""
+		return False
 
 def _readArcBase(params):
 	result = ArcBase()
@@ -907,12 +929,12 @@ class PolylineBase(Object):
 	"""Base class of Polygon-like objects (`Polygon`,
 	`Polyline`, `PictureBBox`)."""
 
-	__slots__ = ("points", "pictureFilename", "flipped", "radius", "_pointCount")
+	__slots__ = ("points", "filename", "flipped", "radius", "_pointCount")
 	
 	def __init__(self):
 		Object.__init__(self)
 		self.points = []
-		self.pictureFilename = None
+		self.filename = None
 		self.flipped = False
 		self.radius = -1
 
@@ -978,7 +1000,7 @@ class PolylineBase(Object):
 		if hasBackwardArrow:
 			result += "\t" + str(self.backwardArrow)
 		if isinstance(self, PictureBBox):
-			result += "\t" + _join(self.flipped, self.pictureFilename) + "\n"
+			result += "\t" + _join(self.flipped, self.filename) + "\n"
 		i = self._savePointIter()
 		for linePoints in map(None, *(i, )*12):
 			result += "\t" + _join(*[p for p in linePoints if p != None]) + "\n"
@@ -1007,9 +1029,9 @@ class PolylineBase(Object):
 			self.backwardArrow = readArrow(params)
 			return True
 
-		if isinstance(self, PictureBBox) and self.pictureFilename == None:
+		if isinstance(self, PictureBBox) and self.filename == None:
 			self.flipped = int(params[0])
-			self.pictureFilename = params[1]
+			self.filename = params[1]
 			return True
 
 		pointCount = len(params) / 2
@@ -1156,13 +1178,13 @@ class Polyline(PolylineBase):
 
 class PictureBBox(PolyBox):
 	"""Represents a picture embedded in an XFig file.  The filename is
-	stored in the `pictureFilename` attribute."""
+	stored in the `filename` attribute."""
 	
 	__slots__ = ()
 
 	def __init__(self, x1, y1, x2, y2, filename, flipped = False):
 		PolyBox.__init__(self, x1, y1, x2, y2)
-		self.pictureFilename = filename
+		self.filename = filename
 		self.flipped = flipped
 
 	def polylineType(self):
@@ -1368,7 +1390,7 @@ class Text(Object):
 	- x, y (position)
 	- alignment (cf. `alignXXX` constants)
 	- font (cf. fontXXX constants)
-	- fontSize (defailt: 12)
+	- fontSize (default: 12)
 	- fontAngle (default: 0.0)
 	- fontFlags (cf. `ffXXX` constants, default: ffPostScript)
 	- length, height (dummy values, no guarantee about correctness)
@@ -1899,7 +1921,8 @@ class File(Container):
 		return self.addColor(color)
 
 	def colorRGB(self, colorIndex):
-		"""Return a the R,G,B tuple for the given color index."""
+		"""Return a the R,G,B tuple for the given color index.
+		(With values from the range 0..255.)"""
 		
 		assert colorIndex >= 0 and colorIndex < colorCustom0 + len(self.colors), \
 			   "invalid color index"
