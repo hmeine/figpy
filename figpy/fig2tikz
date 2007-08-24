@@ -58,6 +58,7 @@ class TikZConverter(object):
 	def writePicture(self):
 		self.outFile.write("\\begin{tikzpicture}[inner sep=0pt]\n")
 		for depth in reversed(self.figFile.layers()):
+		  self.outFile.write("\n%% objects at depth %d:\n" % depth)
 		  for o in self.figFile.layer(depth):
 			if isinstance(o, fig.ArcBase):
 				self.writeArcBase(o)
@@ -74,7 +75,7 @@ class TikZConverter(object):
 			else:
 				sys.stderr.write("WARNING: %s objects not yet supported!\n" % type(o))
 
-		self.outFile.write("\\end{tikzpicture}%\n")
+		self.outFile.write("\n\\end{tikzpicture}%\n")
 
 	def defineColor(self, name, figColor):
 		# TODO: re-use non-changing colors
@@ -109,7 +110,6 @@ class TikZConverter(object):
 
 	def writeArcBase(self, arc):
 		a1, a2 = arc.angles()
-		sys.stderr.write("%s,%s\n" % (a1, a2))
 		self.outFile.write("%s %s arc (%s:%s:%s);\n" % (
 			self.pathIntro(arc),
 			self.coordinate(arc.points[0]),
