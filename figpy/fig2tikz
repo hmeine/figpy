@@ -77,9 +77,23 @@ class TikZConverter(object):
 
 		self.outFile.write("\n\\end{tikzpicture}%\n")
 
-	def defineColor(self, name, figColor):
+	def defineColor(self, name, figColor, fillStyle = fig.fillStyleSolid):
 		# TODO: re-use non-changing colors
 		r, g, b = self.figFile.colorRGB(figColor)
+		if fillStyle != fig.fillStyleSolid:
+			if fillStyle < fig.fillStyleSolid:
+				shade = float(fillStyle) / fig.fillStyleSolid
+				r *= shade
+				g *= shade
+				b *= shade
+			elif fillStyle <= fig.fillStyleWhite:
+				shade = float(fillStyle - fig.fillStyleSolid) / (
+					fig.fillStyleWhite - fig.fillStyleSolid)
+				r += (255-r) * shade
+				g += (255-g) * shade
+				b += (255-b) * shade
+			else:
+				sys.stderr.write("WARNING: fill style %s not yet supported!\n" % fillStyle)
 		self.outFile.write(
 			"\\definecolor{%s}{rgb}{%s,%s,%s}\n" %
 			(name, latexFloat(r/255.), latexFloat(g/255.), latexFloat(b/255.)))
@@ -95,7 +109,7 @@ class TikZConverter(object):
 		if object.fillStyle != fig.fillStyleNone:
 			fill = "fill"
 			if object.fillColor != fig.colorDefault:
-				fill = "fill=" + self.defineColor("fillColor", object.fillColor)
+				fill = "fill=" + self.defineColor("fillColor", object.fillColor, object.fillStyle)
 			options.append(fill)
 		if object.lineStyle == fig.lineStyleDotted:
 			options.append("style=dotted")
@@ -110,6 +124,10 @@ class TikZConverter(object):
 
 	def writeArcBase(self, arc):
 		a1, a2 = arc.angles()
+		if arc.direction == fig.adCounterClockwise and a2 < a1:
+			a2 += 2*math.pi
+		if arc.direction == fig.adClockwise and a2 > a1:
+			a2 -= 2*math.pi
 		self.outFile.write("%s %s arc (%s:%s:%s);\n" % (
 			self.pathIntro(arc),
 			self.coordinate(arc.points[0]),
@@ -133,7 +151,7 @@ class TikZConverter(object):
 
 	def writePolyBox(self, polyBox):
 		self.outFile.write("%s %s rectangle %s;\n" % (
-			self.pathIntro(poly),
+			self.pathIntro(polyBox),
 			self.coordinate(polyBox.points[0]),
 			self.coordinate(polyBox.points[2])))
 
