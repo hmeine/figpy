@@ -1,0 +1,188 @@
+#!/usr/bin/env python
+import fig, sys, math
+
+_latexChars = {
+	'^':  r"{\textasciicircum}",
+	'~':  r"{\textasciitilde}",
+	'\\': r"{\textbackslash}",
+	'|':  r"{\textbar}",
+	'<':  r"{\textless}",
+	'>':  r"{\textgreater}",
+	'\"': r"{\textquotedblright}",
+	}
+
+def escapeLaTeX(s):
+	result = ""
+	for ch in s:
+		if ch in "$%_{}&#":
+			result += r'\%s' % ch
+		elif ch in r'^~\|<>"':
+			result += _latexChars[ch]
+		else:
+			result += ch
+	return result
+
+def latexFloat(num):
+	result = "%20.9f" % num
+	b = 0
+	while result[b] == " ":
+		b += 1
+	e = len(result)
+	while result[e-1] == "0":
+		e -= 1
+	if result[e-1] == ".":
+		e -= 1
+	return result[b:e]
+
+# --------------------------------------------------------------------
+
+class TikZConverter(object):
+	def __init__(self, figFile, outFile, includeBaseDir = ""):
+		self.figFile = figFile
+		self.outFile = outFile
+		if figFile.metric:
+			# if metric, 450 units is 1cm (in the default ppi setting of 1200)
+			self.scale = 8./3./figFile.ppi
+		else:
+			self.scale = 2.54/figFile.ppi # number from tneumann's fig2pgf
+		self.includeBaseDir = includeBaseDir
+		self.fontMag = self.figFile.magnification / 100.0
+
+	def coordinate(self, xy):
+		return "(%s,%s)" % (latexFloat( xy[0]*self.scale),
+							latexFloat(-xy[1]*self.scale))
+
+	def dimensionCM(self, length):
+		return "%scm" % latexFloat(length*self.scale)
+
+	def writePicture(self):
+		self.outFile.write("\\begin{tikzpicture}[inner sep=0pt]\n")
+		for depth in reversed(self.figFile.layers()):
+		  for o in self.figFile.layer(depth):
+			if isinstance(o, fig.ArcBase):
+				self.writeArcBase(o)
+			elif isinstance(o, fig.EllipseBase):
+				self.writeEllipseBase(o)
+			elif type(o) == fig.PictureBBox:
+				self.writePictureBBox(o)
+			elif isinstance(o, fig.PolyBox):
+				self.writePolyBox(o)
+			elif isinstance(o, fig.PolylineBase):
+				self.writePolylineBase(o)
+			elif isinstance(o, fig.Text):
+				self.writeText(o)
+			else:
+				sys.stderr.write("WARNING: %s objects not yet supported!\n" % type(o))
+
+		self.outFile.write("\\end{tikzpicture}%\n")
+
+	def defineColor(self, name, figColor):
+		# TODO: re-use non-changing colors
+		r, g, b = self.figFile.colorRGB(figColor)
+		self.outFile.write(
+			"\\definecolor{%s}{rgb}{%s,%s,%s}\n" %
+			(name, latexFloat(r/255.), latexFloat(g/255.), latexFloat(b/255.)))
+		return name
+
+	def pathIntro(self, object):
+		options = []
+		if object.lineWidth:
+			draw = "draw"
+			if object.penColor != fig.colorDefault:
+				draw = "draw=" + self.defineColor("penColor", object.penColor)
+			options.append(draw)
+		if object.fillStyle != fig.fillStyleNone:
+			fill = "fill"
+			if object.fillColor != fig.colorDefault:
+				fill = "fill=" + self.defineColor("fillColor", object.fillColor)
+			options.append(fill)
+		if object.lineStyle == fig.lineStyleDotted:
+			options.append("style=dotted")
+		elif object.lineStyle == fig.lineStyleDashed:
+			options.append("style=dashed")
+		elif object.lineStyle not in (fig.lineStyleDefault, fig.lineStyleSolid):
+			# TODO style=solid in TikZ?
+			sys.stderr.write("WARNING: line style %s not yet supported!\n" % object.lineStyle)
+		if not options:
+			return "%"
+		return "\\path[%s]" % ",".join(options)
+
+	def writeArcBase(self, arc):
+		a1, a2 = arc.angles()
+		sys.stderr.write("%s,%s\n" % (a1, a2))
+		self.outFile.write("%s %s arc (%s:%s:%s);\n" % (
+			self.pathIntro(arc),
+			self.coordinate(arc.points[0]),
+			int(round(math.degrees(a1))),
+			int(round(math.degrees(a2))),
+			arc.radius()*self.scale))
+		
+	def writeEllipseBase(self, ellipse):
+		# TODO: ellipse.angle
+		self.outFile.write("%s %s ellipse (%s and %s);\n" % (
+			self.pathIntro(ellipse), self.coordinate(ellipse.center),
+			self.dimensionCM(ellipse.radius[0]),
+			self.dimensionCM(ellipse.radius[1])))
+
+	def writePolylineBase(self, poly):
+		self.outFile.write(self.pathIntro(poly))
+		self.outFile.write(" -- ".join(map(self.coordinate, poly.points)))
+		if poly.closed():
+			self.outFile.write(" -- cycle")
+		self.outFile.write(";\n")
+
+	def writePolyBox(self, polyBox):
+		self.outFile.write("%s %s rectangle %s;\n" % (
+			self.pathIntro(poly),
+			self.coordinate(polyBox.points[0]),
+			self.coordinate(polyBox.points[2])))
+
+	def writePictureBBox(self, pictureBBox):
+		self.outFile.write("\\node[anchor=north west] at %s {\\includegraphics[width=%s,height=%s]{%s%s}};\n" % (
+			self.coordinate(pictureBBox.bounds().upperLeft()),
+			self.dimensionCM(pictureBBox.bounds().width()),
+			self.dimensionCM(pictureBBox.bounds().height()),
+			self.includeBaseDir,
+			pictureBBox.filename))
+
+	def writeText(self, text):
+		if text.fontFlags & fig.ffHidden:
+			return
+
+		options = ["draw"]
+		if text.penColor != fig.colorDefault:
+			options.append("color=" + self.defineColor("textColor", text.penColor))
+		self.outFile.write("\\path[%s]" % ",".join(options))
+
+		if text.alignment == fig.alignLeft:
+			anchor = "base west"
+		elif text.alignment == fig.alignRight:
+			anchor = "base east"
+		else:
+			anchor = "base"
+
+		if text.fontFlags & fig.ffSpecial:
+			str = text.text
+		else:
+			str = escapeLaTeX(text.text)
+
+		texSize = text.fontSize
+		if not text.fontFlags & fig.ffRigid:
+			texSize *= self.fontMag
+
+		if texSize: # allow setting e.g. fontMag to 0 to prevent this:
+			baselineSkip = texSize * 1.2
+			str = r"\fontsize{%s}{%s}\selectfont{}%s" % (
+				texSize, baselineSkip, str)
+
+		self.outFile.write("%s node[anchor=%s] {%s};\n" % (
+			self.coordinate((text.x, text.y)), anchor, str))
+
+
+f = fig.File(sys.argv[1])
+includeBaseDir = ""
+if len(sys.argv) > 2:
+	includeBaseDir = sys.argv[2]
+
+c = TikZConverter(f, sys.stdout, includeBaseDir)
+c.writePicture()
