@@ -55,6 +55,7 @@ adCounterClockwise = 1
 fillStyleNone    = -1
 fillStyleBlack   = 0
 fillStyleSolid   = 20
+fillStyleWhite   = 40
 fillStyleStripes = 42
 "obsolete, use `fillStyleRight30` instead"
 fillStyleLeft30    = 41
@@ -1437,11 +1438,11 @@ class Text(Object):
 	def __str__(self):
 		font = self.font
 		if self.font is None:
-			return self.fontFlags & ffPostScript and fontDefault or 0
+			font = self.fontFlags & ffPostScript and fontDefault or 0
 		result = _formatComment(self.comment) + \
 				 _join(_figText, self.alignment,
 					   self.penColor, self.depth, self.penStyle,
-					   self.font, self.fontSize, str(self.fontAngle), self.fontFlags,
+					   font, self.fontSize, str(self.fontAngle), self.fontFlags,
 					   self.height, self.length, self.x, self.y,
 					   self.text.replace('\\', '\\\\') + '\\001') + "\n"
 
