@@ -36,6 +36,22 @@ def latexFloat(num):
 
 # --------------------------------------------------------------------
 
+_arrowConverter = {
+	fig.arStick  : 'to',
+	fig.arClosed : 'triangle 45',
+	fig.arClosedIndented : 'stealth',
+	fig.arClosedPointed : 'diamond',
+	}
+
+def arrowCode(arrow):
+	if not arrow:
+		return ""
+	result = _arrowConverter[arrow.type]
+	if arrow.style == fig.asHollow and result in (
+		"triangle 45", "diamond"):
+		result = "open " + result
+	return result
+
 class TikZConverter(object):
 	def __init__(self, figFile, outFile, includeBaseDir = ""):
 		self.figFile = figFile
@@ -118,6 +134,11 @@ class TikZConverter(object):
 		elif object.lineStyle not in (fig.lineStyleDefault, fig.lineStyleSolid):
 			# TODO style=solid in TikZ?
 			sys.stderr.write("WARNING: line style %s not yet supported!\n" % object.lineStyle)
+
+		if object.forwardArrow or object.backwardArrow:
+			options.append(arrowCode(object.backwardArrow) + 
+						   "-" + arrowCode(object.forwardArrow))
+
 		if not options:
 			return "%"
 		return "\\path[%s]" % ",".join(options)
