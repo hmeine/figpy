@@ -1403,7 +1403,7 @@ class Text(Object):
 	def __init__(self, x, y, text, alignment = alignLeft):
 		Object.__init__(self)
 		self.text = text
-		self.font = fontDefault
+		self.font = None
 		self.fontSize = 12
 		self.fontAngle = 0.0
 		self.fontFlags = ffPostScript
@@ -1435,18 +1435,21 @@ class Text(Object):
 		return result
 
 	def __str__(self):
+		font = self.font
+		if self.font is None:
+			return self.fontFlags & ffPostScript and fontDefault or 0
 		result = _formatComment(self.comment) + \
 				 _join(_figText, self.alignment,
 					   self.penColor, self.depth, self.penStyle,
 					   self.font, self.fontSize, str(self.fontAngle), self.fontFlags,
 					   self.height, self.length, self.x, self.y,
-					   self.text + "\\001") + "\n"
+					   self.text.replace('\\', '\\\\') + '\\001') + "\n"
 
 		return result
 
 def _readText(params, text):
 	result = Text(int(params[10]), int(params[11]),
-				  text, int(params[0]))
+				  text.replace('\\\\', '\\'), int(params[0]))
 	result.penColor = int(params[1])
 	result.depth = int(params[2])
 	result.penStyle = int(params[3])
