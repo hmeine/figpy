@@ -195,8 +195,8 @@ colorCustom0   = 32
 
 #{ join style constants (cf. `Object.joinStyle` property)
 joinStyleMiter = 0
-joinStyleBevel = 1
-joinStyleRound = 2
+joinStyleRound = 1
+joinStyleBevel = 2
 
 #{ alignment constants (cf. `Text.alignment` property)
 alignLeft     = 0
