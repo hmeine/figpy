@@ -55,6 +55,17 @@ _joinStyleMapping = {
 	fig.joinStyleRound : 'round',
 	}
 
+_colorMapping = {
+	fig.colorBlack : 'black',
+	fig.colorBlue : 'blue',
+	fig.colorGreen : 'green',
+	fig.colorCyan : 'cyan',
+	fig.colorRed : 'red',
+	fig.colorMagenta : 'magenta',
+	fig.colorYellow : 'yellow',
+	fig.colorWhite : 'white',
+	}
+
 def arrowCode(arrow):
 	if not arrow:
 		return ""
@@ -115,7 +126,9 @@ class TikZConverter(object):
 		self.outFile.write("\n\\end{tikzpicture}%\n")
 
 	def defineColor(self, name, figColor):
-		# TODO: re-use non-changing colors
+		if figColor in _colorMapping:
+			return _colorMapping[figColor]
+
 		r, g, b = self.figFile.colorRGB(figColor)
 		if self._definedColors.get(name, None) != (r,g,b):
 			self.outFile.write(
