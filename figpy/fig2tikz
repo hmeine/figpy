@@ -75,6 +75,7 @@ class TikZConverter(object):
 			self.scale = 2.54/figFile.ppi # number from tneumann's fig2pgf
 		self.includeBaseDir = includeBaseDir
 		self.fontMag = self.figFile.magnification / 100.0
+		self._definedColors = {}
 
 	def coordinate(self, xy):
 		return "(%s,%s)" % (latexFloat( xy[0]*self.scale),
@@ -113,26 +114,14 @@ class TikZConverter(object):
 
 		self.outFile.write("\n\\end{tikzpicture}%\n")
 
-	def defineColor(self, name, figColor, fillStyle = fig.fillStyleSolid):
+	def defineColor(self, name, figColor):
 		# TODO: re-use non-changing colors
 		r, g, b = self.figFile.colorRGB(figColor)
-		if fillStyle != fig.fillStyleSolid:
-			if fillStyle < fig.fillStyleSolid:
-				shade = float(fillStyle) / fig.fillStyleSolid
-				r *= shade
-				g *= shade
-				b *= shade
-			elif fillStyle <= fig.fillStyleWhite:
-				shade = float(fillStyle - fig.fillStyleSolid) / (
-					fig.fillStyleWhite - fig.fillStyleSolid)
-				r += (255-r) * shade
-				g += (255-g) * shade
-				b += (255-b) * shade
-			else:
-				sys.stderr.write("WARNING: fill style %s not yet supported!\n" % fillStyle)
-		self.outFile.write(
-			"\\definecolor{%s}{rgb}{%s,%s,%s}\n" %
-			(name, latexFloat(r/255.), latexFloat(g/255.), latexFloat(b/255.)))
+		if self._definedColors.get(name, None) != (r,g,b):
+			self.outFile.write(
+				"\\definecolor{%s}{rgb}{%s,%s,%s}\n" %
+				(name, latexFloat(r/255.), latexFloat(g/255.), latexFloat(b/255.)))
+			self._definedColors[name] = (r,g,b)
 		return name
 
 	def pathIntro(self, object, options = None):
@@ -150,10 +139,20 @@ class TikZConverter(object):
 				options.append("cap=%s" % _capStyleMapping[object.capStyle])
 			if object.joinStyle != fig.joinStyleMiter:
 				options.append("join=%s" % _joinStyleMapping[object.joinStyle])
+
 		if object.fillStyle != fig.fillStyleNone:
 			fill = "fill"
 			if object.fillColor != fig.colorDefault:
-				fill = "fill=" + self.defineColor("fillColor", object.fillColor, object.fillStyle)
+				fill = "fill=" + self.defineColor("fillColor", object.fillColor)
+			if object.fillStyle == fig.fillStyleSolid:
+				pass
+			elif object.fillStyle < fig.fillStyleSolid:
+				fill += "!%d!black" % (object.fillStyle*5)
+			elif object.fillStyle <= fig.fillStyleWhite:
+				fill += "!%d" % (100 - (object.fillStyle - fig.fillStyleSolid)*5)
+			else:
+				sys.stderr.write("WARNING: fill style %s not yet supported!\n" % object.fillStyle)
+
 			options.append(fill)
 
 		if object.lineStyle == fig.lineStyleDotted:
