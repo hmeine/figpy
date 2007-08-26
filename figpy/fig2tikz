@@ -22,8 +22,8 @@ def escapeLaTeX(s):
 			result += ch
 	return result
 
-def latexFloat(num):
-	result = "%20.9f" % num
+def latexFloat(num, fractDigits = 8):
+	result = ("%%20.%df" % fractDigits) % num
 	b = 0
 	while result[b] == " ":
 		b += 1
@@ -36,17 +36,29 @@ def latexFloat(num):
 
 # --------------------------------------------------------------------
 
-_arrowConverter = {
+_arrowMapping = {
 	fig.arStick  : 'to',
 	fig.arClosed : 'triangle 45',
 	fig.arClosedIndented : 'stealth',
 	fig.arClosedPointed : 'diamond',
 	}
 
+_capStyleMapping = {
+	fig.capStyleButt : 'butt',
+	fig.capStyleRound : 'round',
+	fig.capStyleProjecting : 'rect',
+	}
+
+_joinStyleMapping = {
+	fig.joinStyleMiter : 'miter',
+	fig.joinStyleBevel : 'bevel',
+	fig.joinStyleRound : 'round',
+	}
+
 def arrowCode(arrow):
 	if not arrow:
 		return ""
-	result = _arrowConverter[arrow.type]
+	result = _arrowMapping[arrow.type]
 	if arrow.style == fig.asHollow and result in (
 		"triangle 45", "diamond"):
 		result = "open " + result
@@ -71,6 +83,9 @@ class TikZConverter(object):
 	def dimensionCM(self, length):
 		return "%scm" % latexFloat(length*self.scale)
 
+	def figPt(self, figPt):
+		return "%spt" % latexFloat(figPt*72./80, 1)
+
 	def writePicture(self):
 		self.outFile.write("\\begin{tikzpicture}[inner sep=0pt]\n")
 		for depth in reversed(self.figFile.layers()):
@@ -82,9 +97,14 @@ class TikZConverter(object):
 				self.writeEllipseBase(o)
 			elif type(o) == fig.PictureBBox:
 				self.writePictureBBox(o)
+			elif isinstance(o, fig.ArcBox):
+				self.writeArcBox(o)
 			elif isinstance(o, fig.PolyBox):
 				self.writePolyBox(o)
 			elif isinstance(o, fig.PolylineBase):
+				self.writePolylineBase(o)
+			elif isinstance(o, fig.SplineBase):
+				sys.stderr.write("WARNING: X-splines cannot be correctly converted - exporting as simple path for now!\n")
 				self.writePolylineBase(o)
 			elif isinstance(o, fig.Text):
 				self.writeText(o)
@@ -115,18 +135,27 @@ class TikZConverter(object):
 			(name, latexFloat(r/255.), latexFloat(g/255.), latexFloat(b/255.)))
 		return name
 
-	def pathIntro(self, object):
-		options = []
+	def pathIntro(self, object, options = None):
+		if not options:
+			options = []
 		if object.lineWidth:
 			draw = "draw"
 			if object.penColor != fig.colorDefault:
 				draw = "draw=" + self.defineColor("penColor", object.penColor)
-			options.append(draw)
+			options.insert(0, draw)
+
+			if object.lineWidth > 1:
+				options.append("line width=%s" % self.figPt(object.lineWidth-1))
+			if object.capStyle != fig.capStyleButt:
+				options.append("cap=%s" % _capStyleMapping[object.capStyle])
+			if object.joinStyle != fig.joinStyleMiter:
+				options.append("join=%s" % _joinStyleMapping[object.joinStyle])
 		if object.fillStyle != fig.fillStyleNone:
 			fill = "fill"
 			if object.fillColor != fig.colorDefault:
 				fill = "fill=" + self.defineColor("fillColor", object.fillColor, object.fillStyle)
 			options.append(fill)
+
 		if object.lineStyle == fig.lineStyleDotted:
 			options.append("style=dotted")
 		elif object.lineStyle == fig.lineStyleDashed:
@@ -136,7 +165,7 @@ class TikZConverter(object):
 			sys.stderr.write("WARNING: line style %s not yet supported!\n" % object.lineStyle)
 
 		if object.forwardArrow or object.backwardArrow:
-			options.append(arrowCode(object.backwardArrow) + 
+			options.append(arrowCode(object.backwardArrow) +
 						   "-" + arrowCode(object.forwardArrow))
 
 		if not options:
@@ -175,6 +204,13 @@ class TikZConverter(object):
 			self.pathIntro(polyBox),
 			self.coordinate(polyBox.points[0]),
 			self.coordinate(polyBox.points[2])))
+
+	def writeArcBox(self, arcBox):
+		self.outFile.write("%s %s rectangle %s;\n" % (
+			self.pathIntro(arcBox, options = [
+			"rounded corners=%s" % self.figPt(arcBox.radius)]),
+			self.coordinate(arcBox.points[0]),
+			self.coordinate(arcBox.points[2])))
 
 	def writePictureBBox(self, pictureBBox):
 		self.outFile.write("\\node[anchor=north west] at %s {\\includegraphics[width=%s,height=%s]{%s%s}};\n" % (
@@ -216,7 +252,6 @@ class TikZConverter(object):
 
 		self.outFile.write("%s node[anchor=%s] {%s};\n" % (
 			self.coordinate((text.x, text.y)), anchor, str))
-
 
 f = fig.File(sys.argv[1])
 includeBaseDir = ""
