@@ -103,6 +103,9 @@ class TikZConverter(object):
 		for depth in reversed(self.figFile.layers()):
 		  self.outFile.write("\n%% objects at depth %d:\n" % depth)
 		  for o in self.figFile.layer(depth):
+			if o.comment:
+				c = o.comment.rstrip()
+				self.outFile.write("%%%s\n" % c.replace("\n", "\n%"))
 			if isinstance(o, fig.ArcBase):
 				self.writeArcBase(o)
 			elif isinstance(o, fig.Circle):
@@ -199,7 +202,7 @@ class TikZConverter(object):
 			options.append(arrowCode(object.backwardArrow) +
 						   "-" + arrowCode(object.forwardArrow))
 
-		if not options:
+		if not command:
 			return "%"
 		return "\\%s[%s]" % (command, ",".join(options))
 
