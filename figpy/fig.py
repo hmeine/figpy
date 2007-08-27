@@ -44,8 +44,8 @@ stOpenXSpline        = 4
 stClosedXSpline      = 5
 
 #{ arc type constants (cf. `ArcBase.changeType()`)
-atPie  = 0
 atOpen = 1
+atPie  = 2
 
 #{ arc directions (cf. ArcBase.direction property)
 adClockwise = 0
