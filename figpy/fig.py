@@ -1392,13 +1392,13 @@ class Text(Object):
 	- alignment (cf. `alignXXX` constants)
 	- font (cf. fontXXX constants)
 	- fontSize (default: 12)
-	- fontAngle (default: 0.0)
 	- fontFlags (cf. `ffXXX` constants, default: ffPostScript)
+	- angle (default: 0.0)
 	- length, height (dummy values, no guarantee about correctness)
 	"""
 
 	__slots__ = ("text", "x", "y", "alignment",
-				 "font", "fontSize", "fontAngle", "fontFlags",
+				 "font", "fontSize", "fontFlags", "angle",
 				 "length", "height")
 
 	def __init__(self, x, y, text, alignment = alignLeft):
@@ -1406,7 +1406,7 @@ class Text(Object):
 		self.text = text
 		self.font = None
 		self.fontSize = 12
-		self.fontAngle = 0.0
+		self.angle = 0.0
 		self.fontFlags = ffPostScript
 		self.height = 136
 		self.length = 100 # dummy value
@@ -1442,7 +1442,7 @@ class Text(Object):
 		result = _formatComment(self.comment) + \
 				 _join(_figText, self.alignment,
 					   self.penColor, self.depth, self.penStyle,
-					   font, self.fontSize, str(self.fontAngle), self.fontFlags,
+					   font, self.fontSize, str(self.angle), self.fontFlags,
 					   self.height, self.length, self.x, self.y,
 					   self.text.replace('\\', '\\\\') + '\\001') + "\n"
 
@@ -1456,7 +1456,7 @@ def _readText(params, text):
 	result.penStyle = int(params[3])
 	result.font = int(params[4])
 	result.fontSize = float(params[5])
-	result.fontAngle = float(params[6])
+	result.angle = float(params[6])
 	result.fontFlags = int(params[7])
 	#print float(params[8])/result.fontSize, float(params[9])/len(result.text)
 	result.height = float(params[8])
@@ -1617,7 +1617,7 @@ class ObjectProxy(Container):
 	  ``foo.findObjects(type = fig.Polyline).lineWidth = 4``
 
 	  Setting an attribute is promoted to all contained objects which
-	  have that attribute.  (E.g. setting fontAngle will affect only
+	  have that attribute.  (E.g. setting fontSize will affect only
 	  Text objects.)"""
 	
 	__slots__ = ("parent", )
