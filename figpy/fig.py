@@ -606,7 +606,9 @@ class ArcBase(Object):
 
 	__slots__ = ("points", "direction", "center", "_pointCount")
 	
-	def __init__(self, center = None, point1 = None, point2 = None,
+	def __init__(self, center = None,
+				 point1 = None, point2 = None,
+				 angle1 = None, angle2 = None, radius = None,
 				 direction = adClockwise):
 		Object.__init__(self)
 		self.center = center
@@ -615,6 +617,14 @@ class ArcBase(Object):
 		if center == None:
 			assert point1 == None and point2 == None
 			return
+		assert ((point1 is None) == (point2 is None)) and \
+			   ((angle1 is None) == (angle2 is None) == (radius is None)) and \
+			   ((point1 is None) != (angle1 is None)), \
+			   "ArcBase.__init__: give either points *or* angles+radius!"
+
+		if not angle1 is None:
+			point1 = center + (radius*math.cos(angle1), -radius*math.sin(angle1))
+			point2 = center + (radius*math.cos(angle2), -radius*math.sin(angle2))
 
 		# calculate midpoint between start- and end-point on arc
 		self.points = [point1, None, point2]
@@ -626,6 +636,8 @@ class ArcBase(Object):
 											 -math.sin(angle12))
 
 	def _angleDiff(self, angle2, angle1, direction):
+		"""Return (angle2 - angle1) in the range [-2pi..0) if
+		direction == adClockwise, and in the range [0..2pi) otherwise."""
 		result = angle2 - angle1
 		if direction == adClockwise:
 			while result > 0:
@@ -640,12 +652,14 @@ class ArcBase(Object):
 		return result
 
 	def angles(self):
-		"""Return start- and end-angle (in radians)."""
+		"""Return start- and end-angle (in radians).  The second angle
+		is smaller than the first iff direction is adClockwise."""
 		point1, _, point2 = self.points
 		angle1 = math.atan2(-(point1[1] - self.center[1]),
 							  point1[0] - self.center[0])
 		angle2 = math.atan2(-(point2[1] - self.center[1]),
 							  point2[0] - self.center[0])
+		angle2 = angle1 + self._angleDiff(angle2, angle1, self.direction)
 		return angle1, angle2
 
 	def radius(self):
