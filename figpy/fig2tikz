@@ -22,7 +22,7 @@ def escapeLaTeX(s):
 			result += ch
 	return result
 
-def latexFloat(num, fractDigits = 8):
+def latexFloat(num, fractDigits = 5):
 	result = ("%%20.%df" % fractDigits) % num
 	b = 0
 	while result[b] == " ":
@@ -181,8 +181,13 @@ class TikZConverter(object):
 			if object.fillStyle == fig.fillStyleSolid:
 				pass
 			elif object.fillStyle < fig.fillStyleSolid:
-				fillColor += "!%d!black" % (object.fillStyle*5)
+				if not fillColor:
+					fillColor = "black!%s" % (object.fillStyle*5)
+				else:
+					fillColor += "!%d!black" % (object.fillStyle*5)
 			elif object.fillStyle <= fig.fillStyleWhite:
+				if not fillColor:
+					self._warnOnce("fill style %s with default fill color should not happen!" % object.fillStyle)
 				fillColor += "!%d" % (100 - (object.fillStyle - fig.fillStyleSolid)*5)
 			else:
 				self._warnOnce("fill style %s not yet supported!" % object.fillStyle)
@@ -210,24 +215,35 @@ class TikZConverter(object):
 
 		if not command:
 			return "%"
+		if not options:
+			return "\\%s" % (command, )
 		return "\\%s[%s]" % (command, ",".join(options))
 
 	def writeArcBase(self, arc):
 		a1, a2 = arc.angles()
-		if arc.direction == fig.adCounterClockwise and a2 < a1:
-			a2 += 2*math.pi
-		if arc.direction == fig.adClockwise and a2 > a1:
-			a2 -= 2*math.pi
+		startPoint = 0
+
+		a1 = int(round(math.degrees(a1)))
+		a2 = int(round(math.degrees(a2)))
+		if a2 >= 360:
+			temp = a1
+			a1 = a2 - 360
+			a2 = temp - 360
+			startPoint = 2
+		elif a2 <= -360:
+			temp = a1
+			a1 = a2 + 360
+			a2 = temp + 360
+			startPoint = 2
 
 		close = ""
 		if arc.closed():
-			close = " -- %s -- cycle" % self.coordinate(arc.center())
+			close = " -- %s -- cycle" % self.coordinate(arc.center)
 		
 		self.outFile.write("%s %s arc (%s:%s:%s)%s;\n" % (
 			self.pathIntro(arc),
-			self.coordinate(arc.points[0]),
-			int(round(math.degrees(a1))),
-			int(round(math.degrees(a2))),
+			self.coordinate(arc.points[startPoint]),
+			a1, a2,
 			arc.radius()*self.scale,
 			close))
 		
