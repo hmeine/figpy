@@ -162,28 +162,30 @@ class TikZConverter(object):
 				options.append("join=%s" % _joinStyleMapping[object.joinStyle])
 
 		if object.fillStyle != fig.fillStyleNone:
-			fill = "fill"
+			fillColor = ""
 			if object.fillColor != fig.colorDefault:
 				if object.fillColor == object.penColor and object.lineWidth:
-					fill = "fill=" + penColor
+					fillColor = penColor
 				else:
-					fill = "fill=" + self.defineColor("fillColor", object.fillColor)
+					fillColor = self.defineColor("fillColor", object.fillColor)
 
 			if object.fillStyle == fig.fillStyleSolid:
 				pass
 			elif object.fillStyle < fig.fillStyleSolid:
-				fill += "!%d!black" % (object.fillStyle*5)
+				fillColor += "!%d!black" % (object.fillStyle*5)
 			elif object.fillStyle <= fig.fillStyleWhite:
-				fill += "!%d" % (100 - (object.fillStyle - fig.fillStyleSolid)*5)
+				fillColor += "!%d" % (100 - (object.fillStyle - fig.fillStyleSolid)*5)
 			else:
 				sys.stderr.write("WARNING: fill style %s not yet supported!\n" % object.fillStyle)
 
 			if not command:
 				command = "fill"
-				if fill != "fill":
-					options.insert(0, fill[5:])
+				if fillColor:
+					options.insert(0, fillColor)
+			elif fillColor == penColor:
+				command = "filldraw"
 			else:
-				options.append(fill)
+				options.append("fill=%s" % fillColor)
 
 		if object.lineStyle == fig.lineStyleDotted:
 			options.append("style=dotted")
