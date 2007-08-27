@@ -105,6 +105,8 @@ class TikZConverter(object):
 		  for o in self.figFile.layer(depth):
 			if isinstance(o, fig.ArcBase):
 				self.writeArcBase(o)
+			elif isinstance(o, fig.Circle):
+				self.writeCircle(o)
 			elif isinstance(o, fig.EllipseBase):
 				self.writeEllipseBase(o)
 			elif type(o) == fig.PictureBBox:
@@ -140,11 +142,17 @@ class TikZConverter(object):
 	def pathIntro(self, object, options = None):
 		if not options:
 			options = []
+
+		command = ""
+
+		penColor = None
+		
 		if object.lineWidth:
-			draw = "draw"
+			command = "draw"
+
 			if object.penColor != fig.colorDefault:
-				draw = "draw=" + self.defineColor("penColor", object.penColor)
-			options.insert(0, draw)
+				penColor = self.defineColor("penColor", object.penColor)
+				options.append(penColor)
 
 			if object.lineWidth > 1:
 				options.append("line width=%s" % self.figPt(object.lineWidth-1))
@@ -156,7 +164,11 @@ class TikZConverter(object):
 		if object.fillStyle != fig.fillStyleNone:
 			fill = "fill"
 			if object.fillColor != fig.colorDefault:
-				fill = "fill=" + self.defineColor("fillColor", object.fillColor)
+				if object.fillColor == object.penColor and object.lineWidth:
+					fill = "fill=" + penColor
+				else:
+					fill = "fill=" + self.defineColor("fillColor", object.fillColor)
+
 			if object.fillStyle == fig.fillStyleSolid:
 				pass
 			elif object.fillStyle < fig.fillStyleSolid:
@@ -166,7 +178,12 @@ class TikZConverter(object):
 			else:
 				sys.stderr.write("WARNING: fill style %s not yet supported!\n" % object.fillStyle)
 
-			options.append(fill)
+			if not command:
+				command = "fill"
+				if fill != "fill":
+					options.insert(0, fill[5:])
+			else:
+				options.append(fill)
 
 		if object.lineStyle == fig.lineStyleDotted:
 			options.append("style=dotted")
@@ -182,7 +199,7 @@ class TikZConverter(object):
 
 		if not options:
 			return "%"
-		return "\\path[%s]" % ",".join(options)
+		return "\\%s[%s]" % (command, ",".join(options))
 
 	def writeArcBase(self, arc):
 		a1, a2 = arc.angles()
@@ -200,9 +217,16 @@ class TikZConverter(object):
 	def writeEllipseBase(self, ellipse):
 		# TODO: ellipse.angle
 		self.outFile.write("%s %s ellipse (%s and %s);\n" % (
-			self.pathIntro(ellipse), self.coordinate(ellipse.center),
+			self.pathIntro(ellipse),
+			self.coordinate(ellipse.center),
 			self.dimensionCM(ellipse.radius[0]),
 			self.dimensionCM(ellipse.radius[1])))
+
+	def writeCircle(self, circle):
+		self.outFile.write("%s %s circle (%s);\n" % (
+			self.pathIntro(circle),
+			self.coordinate(circle.center),
+			self.dimensionCM(circle.radius[0])))
 
 	def writePolylineBase(self, poly):
 		self.outFile.write(self.pathIntro(poly))
