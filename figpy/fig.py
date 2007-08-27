@@ -1444,13 +1444,30 @@ class Text(Object):
 					   self.penColor, self.depth, self.penStyle,
 					   font, self.fontSize, str(self.angle), self.fontFlags,
 					   self.height, self.length, self.x, self.y,
-					   self.text.replace('\\', '\\\\') + '\\001') + "\n"
+					   _escapeText(self.text+"\x01")) + "\n"
 
 		return result
 
+def _escapeText(text):
+	nonPrintable = re.compile("[\x00-\x08\x0e-\x1f\x80-\xff]")
+	return nonPrintable.sub(lambda ma: "\\%03o" % ord(ma.string[ma.start()]),
+							text.replace("\\", "\\\\"))
+
+def _unescapeText(text):
+	chunks = text.split("\\")
+	result = chunks[0]
+	i = 1
+	while i < len(chunks):
+		if chunks[i]:
+			result += chr(int(chunks[i][:3], 8)) + chunks[i][3:]
+			i += 1
+		else:
+			result += "\\"+chunks[i+1]
+			i += 2
+	return result
+
 def _readText(params, text):
-	result = Text(int(params[10]), int(params[11]),
-				  text.replace('\\\\', '\\'), int(params[0]))
+	result = Text(int(params[10]), int(params[11]), _unescapeText(text), int(params[0]))
 	result.penColor = int(params[1])
 	result.depth = int(params[2])
 	result.penStyle = int(params[3])
