@@ -265,17 +265,19 @@ class TikZConverter(object):
 		if text.fontFlags & fig.ffHidden:
 			return
 
-		options = ["draw"]
-		if text.penColor != fig.colorDefault:
-			options.append("color=" + self.defineColor("textColor", text.penColor))
-		self.outFile.write("\\path[%s]" % ",".join(options))
+		options = ["base"]
 
 		if text.alignment == fig.alignLeft:
-			anchor = "base west"
+			options.append("left")
 		elif text.alignment == fig.alignRight:
-			anchor = "base east"
-		else:
-			anchor = "base"
+			options.append("right")
+
+		if text.x:
+			options.append("x=%s" % self.dimensionCM(text.x))
+		if text.y:
+			options.append("y=%s" % self.dimensionCM(-text.y))
+		if text.angle:
+			options.append("rotate=%s" % math.degrees(text.angle))
 
 		if text.fontFlags & fig.ffSpecial:
 			str = text.text
@@ -291,6 +293,47 @@ class TikZConverter(object):
 			str = r"\fontsize{%s}{%s}\selectfont{}%s" % (
 				texSize, baselineSkip, str)
 
+		if text.penColor != fig.colorDefault:
+			textColor = self.defineColor("textColor", text.penColor)
+			str = r"\color{%s}%s" % (textColor, str)
+
+		self.outFile.write("\\pgftext[%s]{%s}" % (
+			",".join(options),
+			str))
+
+	def writeTextNode(self, text):
+		if text.fontFlags & fig.ffHidden:
+			return
+
+		options = ["draw"]
+		if text.penColor != fig.colorDefault:
+			options.append("color=" + self.defineColor("textColor", text.penColor))
+
+		if text.alignment == fig.alignLeft:
+			anchor = "base west"
+		elif text.alignment == fig.alignRight:
+			anchor = "base east"
+		else:
+			anchor = "base"
+
+		if text.angle:
+			sys.stderr.write("WARNING: rotated text is not yet supported!\n")
+
+		if text.fontFlags & fig.ffSpecial:
+			str = text.text
+		else:
+			str = escapeLaTeX(text.text)
+
+		texSize = text.fontSize
+		if not text.fontFlags & fig.ffRigid:
+			texSize *= self.fontMag
+
+		if texSize: # allow setting e.g. fontMag to 0 to prevent this:
+			baselineSkip = texSize * 1.2
+			str = r"\fontsize{%s}{%s}\selectfont{}%s" % (
+				texSize, baselineSkip, str)
+
+		self.outFile.write("\\path[%s]" % ",".join(options))
 		self.outFile.write("%s node[anchor=%s] {%s};\n" % (
 			self.coordinate((text.x, text.y)), anchor, str))
 
