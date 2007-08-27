@@ -87,6 +87,12 @@ class TikZConverter(object):
 		self.includeBaseDir = includeBaseDir
 		self.fontMag = self.figFile.magnification / 100.0
 		self._definedColors = {}
+		self._warned = {}
+
+	def _warnOnce(self, message):
+		if not message in self._warned:
+			self._warned[message] = True
+			sys.stderr.write("WARNING: %s\n" % message)
 
 	def coordinate(self, xy):
 		return "(%s,%s)" % (latexFloat( xy[0]*self.scale),
@@ -121,12 +127,12 @@ class TikZConverter(object):
 			elif isinstance(o, fig.PolylineBase):
 				self.writePolylineBase(o)
 			elif isinstance(o, fig.SplineBase):
-				sys.stderr.write("WARNING: X-splines cannot be correctly converted - exporting as simple path for now!\n")
+				self._warnOnce("X-splines cannot be correctly converted - exporting as simple path for now!")
 				self.writePolylineBase(o)
 			elif isinstance(o, fig.Text):
 				self.writeText(o)
 			else:
-				sys.stderr.write("WARNING: %s objects not yet supported!\n" % type(o))
+				self._warnOnce("%s objects not yet supported!" % type(o))
 
 		self.outFile.write("\n\\end{tikzpicture}%\n")
 
@@ -179,7 +185,7 @@ class TikZConverter(object):
 			elif object.fillStyle <= fig.fillStyleWhite:
 				fillColor += "!%d" % (100 - (object.fillStyle - fig.fillStyleSolid)*5)
 			else:
-				sys.stderr.write("WARNING: fill style %s not yet supported!\n" % object.fillStyle)
+				self._warnOnce("fill style %s not yet supported!" % object.fillStyle)
 
 			if not command:
 				command = "fill"
@@ -196,7 +202,7 @@ class TikZConverter(object):
 			options.append("style=dashed")
 		elif object.lineStyle not in (fig.lineStyleDefault, fig.lineStyleSolid):
 			# TODO style=solid in TikZ?
-			sys.stderr.write("WARNING: line style %s not yet supported!\n" % object.lineStyle)
+			self._warnOnce("line style %s not yet supported!" % object.lineStyle)
 
 		if object.forwardArrow or object.backwardArrow:
 			options.append(arrowCode(object.backwardArrow) +
@@ -212,12 +218,18 @@ class TikZConverter(object):
 			a2 += 2*math.pi
 		if arc.direction == fig.adClockwise and a2 > a1:
 			a2 -= 2*math.pi
-		self.outFile.write("%s %s arc (%s:%s:%s);\n" % (
+
+		close = ""
+		if arc.closed():
+			close = " -- %s -- cycle" % self.coordinate(arc.center())
+		
+		self.outFile.write("%s %s arc (%s:%s:%s)%s;\n" % (
 			self.pathIntro(arc),
 			self.coordinate(arc.points[0]),
 			int(round(math.degrees(a1))),
 			int(round(math.degrees(a2))),
-			arc.radius()*self.scale))
+			arc.radius()*self.scale,
+			close))
 		
 	def writeEllipseBase(self, ellipse):
 		# TODO: ellipse.angle
@@ -317,7 +329,7 @@ class TikZConverter(object):
 			anchor = "base"
 
 		if text.angle:
-			sys.stderr.write("WARNING: rotated text is not yet supported!\n")
+			self._warnOnce("rotated text is not yet supported!")
 
 		if text.fontFlags & fig.ffSpecial:
 			str = text.text
