@@ -58,18 +58,38 @@ fillStyleSolid   = 20
 fillStyleWhite   = 40
 fillStyleStripes = 42
 "obsolete, use `fillStyleRight30` instead"
-fillStyleLeft30    = 41
+fillStyleLeft30               = 41
 "30 degree left diagonal pattern"
-fillStyleRight30   = 42
+fillStyleRight30              = 42
 "30 degree right diagonal pattern"
-fillStyleCrossed30 = 44
+fillStyleCrossed30            = 44
 "30 degree cross-hatched pattern"
-fillStyleLeft45    = 44
+fillStyleLeft45               = 44
 "45 degree left diagonal pattern"
-fillStyleRight45   = 45
+fillStyleRight45              = 45
 "45 degree right diagonal pattern"
-fillStyleCrossed45 = 46
+fillStyleCrossed45            = 46
 "45 degree cross-hatched pattern"
+fillStyleBricks               = 47
+"bricks pattern"
+fillStyleCircles              = 48
+"circles pattern"
+fillStyleHorizontalLines      = 49
+"horizontal lines pattern"
+fillStyleVerticalLines        = 50
+"vertical lines pattern"
+fillStyleCrosshatch           = 51
+"crosshatch pattern"
+fillStyleFishScales           = 52
+"fish scales pattern"
+fillStyleSmallFishScales      = 53
+"small fish scales pattern"
+fillStyleOctagons             = 54
+"octagons pattern"
+fillStyleHorizontalTireTreads = 55
+"horizontal \"tire treads\" pattern"
+fillStyleVerticalTireTreads   = 56
+"vertical \"tire treads\" pattern"
 #}
 
 def fillStyleShaded(percent):
@@ -1675,6 +1695,11 @@ class ObjectProxy(Container):
 			raise AttributeError("No Object within ObjectProxy has a '%s' attribute!" % key)
 		return result
 
+	def __getslice__(self, *args):
+		result = ObjectProxy(Container.__getslice__(self, *args))
+		result.parent = self.parent
+		return result
+
 	def remove(self, *args):
 		"""When no arguments are given, remove all objects from parent
 		container.  Else, remove given object from this container."""
@@ -2035,7 +2060,13 @@ class File(Container):
 		appended.
 		
 		After saving, the filename becomes the new figfile.filename
-		and would be used for the next save() without filename."""
+		and would be used for the next save() without filename.
+
+		The return value is the output file written last, i.e. it
+		depends on whether fig2dev was given:
+
+		- if fig2dev == None (default), figfile.filename is returned
+		- otherwise, the exported filename is returned (e.g. basename.eps)"""
 
 		if filename != None:
 			if not filename.endswith(".fig"):
@@ -2049,7 +2080,7 @@ class File(Container):
 		file(self.filename, "w").write(output)
 
 		if fig2dev:
-			self.fig2dev(lang = fig2dev)
+			return self.fig2dev(lang = fig2dev)
 
 		return self.filename
 
@@ -2102,27 +2133,6 @@ class File(Container):
 				os.chdir(oldcwd)
 
 		return os.path.normpath(os.path.join(path, output))
-
-	def saveEPS(self, basename = None):
-		"""Saves the contents of this file to [basename].fig and calls
-		fig2dev to create a [basename].eps, too.  The basename
-		(without either .fig or .eps!) is returned, so that you can
-		use expressions like::
-
-		  resultBasename = figFile.saveEPS(namePrefix + "_%d" % index)
-
-		Furthermore, the basename defaults to figFile.filename without
-		the .fig."""
-
-		if basename == None:
-			assert self.filename, "figfile.save[EPS]() needs a filename!"
-			basename = self.filename
-		if basename.endswith(".fig") or basename.endswith(".eps"):
-			basename = basename[:-4]
-
-		self.save(basename + ".fig", fig2dev = "eps")
-
-		return basename
 
 # --------------------------------------------------------------------
 
