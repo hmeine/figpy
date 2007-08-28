@@ -56,13 +56,11 @@ fillStyleNone    = -1
 fillStyleBlack   = 0
 fillStyleSolid   = 20
 fillStyleWhite   = 40
-fillStyleStripes = 42
-"obsolete, use `fillStyleRight30` instead"
 fillStyleLeft30               = 41
 "30 degree left diagonal pattern"
 fillStyleRight30              = 42
 "30 degree right diagonal pattern"
-fillStyleCrossed30            = 44
+fillStyleCrossed30            = 43
 "30 degree cross-hatched pattern"
 fillStyleLeft45               = 44
 "45 degree left diagonal pattern"
@@ -70,25 +68,37 @@ fillStyleRight45              = 45
 "45 degree right diagonal pattern"
 fillStyleCrossed45            = 46
 "45 degree cross-hatched pattern"
-fillStyleBricks               = 47
-"bricks pattern"
-fillStyleCircles              = 48
-"circles pattern"
+fillStyleHorizontalBricks     = 47
+"horizontal bricks pattern"
+fillStyleVerticalBricks       = 48
+"vertical bricks pattern"
 fillStyleHorizontalLines      = 49
 "horizontal lines pattern"
 fillStyleVerticalLines        = 50
 "vertical lines pattern"
 fillStyleCrosshatch           = 51
 "crosshatch pattern"
-fillStyleFishScales           = 52
+fillStyleHorizontalShingles1  = 52
+"horizontal \"shingles\" skewed to the right pattern"
+fillStyleHorizontalShingles2  = 53
+"horizontal \"shingles\" skewed to the left pattern"
+fillStyleVerticalShingles1    = 54
+"vertical \"shingles\" skewed one way pattern"
+fillStyleVerticalShingles2    = 55
+"vertical \"shingles\" skewed the other way pattern"
+fillStyleFishScales           = 56
 "fish scales pattern"
-fillStyleSmallFishScales      = 53
+fillStyleSmallFishScales      = 57
 "small fish scales pattern"
-fillStyleOctagons             = 54
+fillStyleCircles              = 58
+"circles pattern"
+fillStyleHexagons             = 59
+"hexagons pattern"
+fillStyleOctagons             = 60
 "octagons pattern"
-fillStyleHorizontalTireTreads = 55
+fillStyleHorizontalTireTreads = 61
 "horizontal \"tire treads\" pattern"
-fillStyleVerticalTireTreads   = 56
+fillStyleVerticalTireTreads   = 62
 "vertical \"tire treads\" pattern"
 #}
 
@@ -101,7 +111,7 @@ def fillStyleTinted(percent):
 	`percent` decides between 0 = fillColor .. 100 = white (5% steps)"""
 	return 20 + int(percent) / 5
 
-#{ arrow type constants
+#{ arrow type constants (cf. `Arrow` class)
 arStick = 0
 "stick-type, three-stroke arrow head (default in xfig 2.1 and earlier)"
 arClosed = 1
@@ -111,7 +121,7 @@ arClosedIndented = 2
 arClosedPointed = 3
 "closed with 'pointed' butt"
 
-#{ arrow style constants
+#{ arrow style constants (cf. `Arrow` class)
 asHollow = 0
 "filled with white"
 asFilled = 1
@@ -126,7 +136,7 @@ lineStyleDashDotted       = 3
 lineStyleDashDoubleDotted = 4
 lineStyleDashTripleDotted = 5
 
-#{ cap style constants (cf. `Object.capStyle` property)
+#{ cap style constants (cf. `Object.capStyle` property, used by Polyline, OpenArc, and open splines)
 capStyleButt = 0
 capStyleRound = 1
 capStyleProjecting = 2
@@ -213,7 +223,7 @@ colorLightPink = 30
 colorGold      = 31
 colorCustom0   = 32
 
-#{ join style constants (cf. `Object.joinStyle` property)
+#{ join style constants (cf. `Object.joinStyle` property, used for `Polyline` objects only)
 joinStyleMiter = 0
 joinStyleRound = 1
 joinStyleBevel = 2
@@ -588,8 +598,8 @@ class Object(object):
 		self.comment = ""
 
 class Arrow(object):
-	"""Arrow objects store arrow parameters of other objects.
-	Instances of this class are usually assigned to the
+	"""Arrow objects store arrow parameters of open arcs, splines, or
+	lines.  Instances of this class are usually assigned to the
 	`forwardArrow`/`backwardArrow` properties of `fig.Object`.
 	The Arrow properties are
 	
