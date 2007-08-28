@@ -66,6 +66,25 @@ _colorMapping = {
 	fig.colorWhite : 'white',
 	}
 
+_fillStyleMapping = {
+# 	fig.fillStyleLeft30 : "",
+# 	fig.fillStyleRight30 : "",
+# 	fig.fillStyleCrossed30 : "",
+# 	fig.fillStyleLeft45 : "",
+# 	fig.fillStyleRight45 : "",
+# 	fig.fillStyleCrossed45 : "",
+# 	fig.fillStyleBricks : "",
+# 	fig.fillStyleCircles : "",
+# 	fig.fillStyleHorizontalLines : "",
+# 	fig.fillStyleVerticalLines : "",
+	fig.fillStyleCrosshatch : "crosshatch",
+# 	fig.fillStyleFishScales : "",
+# 	fig.fillStyleSmallFishScales : "",
+# 	fig.fillStyleOctagons : "",
+# 	fig.fillStyleHorizontalTireTreads : "",
+# 	fig.fillStyleVerticalTireTreads : "",
+	}
+
 def arrowCode(arrow):
 	if not arrow:
 		return ""
@@ -171,6 +190,7 @@ class TikZConverter(object):
 				options.append("join=%s" % _joinStyleMapping[object.joinStyle])
 
 		if object.fillStyle != fig.fillStyleNone:
+			pattern = ""
 			fillColor = ""
 			if object.fillColor != fig.colorDefault:
 				if object.fillColor == object.penColor and object.lineWidth:
@@ -189,6 +209,8 @@ class TikZConverter(object):
 				if not fillColor:
 					self._warnOnce("fill style %s with default fill color should not happen!" % object.fillStyle)
 				fillColor += "!%d" % (100 - (object.fillStyle - fig.fillStyleSolid)*5)
+			elif object.fillStyle in _fillStyleMapping:
+				pattern = _fillStyleMapping[object.fillStyle]
 			else:
 				self._warnOnce("fill style %s not yet supported!" % object.fillStyle)
 
@@ -200,6 +222,8 @@ class TikZConverter(object):
 				command = "filldraw"
 			else:
 				options.append("fill=%s" % fillColor)
+			if pattern:
+				options.append("pattern=%s" % pattern)
 
 		if object.lineStyle == fig.lineStyleDotted:
 			options.append("style=dotted")
