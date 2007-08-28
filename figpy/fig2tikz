@@ -236,16 +236,22 @@ class TikZConverter(object):
 			a2 = temp + 360
 			startPoint = 2
 
-		close = ""
+		if startPoint:
+			arc.forwardArrow, arc.backwardArrow = \
+							  arc.backwardArrow, arc.forwardArrow
+
+		draw = cycle = ""
 		if arc.closed():
-			close = " -- %s -- cycle" % self.coordinate(arc.center)
+			draw = "-- "
+			cycle = " -- %s -- cycle" % self.coordinate(arc.center)
 		
-		self.outFile.write("%s %s arc (%s:%s:%s)%s;\n" % (
+		self.outFile.write("%s %s %s+(%s:%s) arc (%s:%s:%s)%s;\n" % (
 			self.pathIntro(arc),
-			self.coordinate(arc.points[startPoint]),
+			self.coordinate(arc.center),
+			draw, a1, latexFloat(arc.radius()*self.scale),
 			a1, a2,
-			arc.radius()*self.scale,
-			close))
+			latexFloat(arc.radius()*self.scale),
+			cycle))
 		
 	def writeEllipseBase(self, ellipse):
 		# TODO: ellipse.angle
