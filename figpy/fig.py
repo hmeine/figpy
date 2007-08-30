@@ -79,13 +79,13 @@ fillStyleVerticalLines        = 50
 fillStyleCrosshatch           = 51
 "crosshatch pattern"
 fillStyleHorizontalShingles1  = 52
-"horizontal \"shingles\" skewed to the right pattern"
+"horizontal \"shingles\" pattern skewed to the right"
 fillStyleHorizontalShingles2  = 53
-"horizontal \"shingles\" skewed to the left pattern"
+"horizontal \"shingles\" pattern skewed to the left"
 fillStyleVerticalShingles1    = 54
-"vertical \"shingles\" skewed one way pattern"
+"vertical \"shingles\" pattern skewed one way"
 fillStyleVerticalShingles2    = 55
-"vertical \"shingles\" skewed the other way pattern"
+"vertical \"shingles\" pattern skewed the other way"
 fillStyleFishScales           = 56
 "fish scales pattern"
 fillStyleSmallFishScales      = 57
@@ -794,9 +794,9 @@ def _readArcBase(params):
 		result.backwardArrow = True
 		subLines += 1
 	result.center = (float(params[13]), float(params[14]))
-	result.points = [(int(params[15]), int(params[16])),
-					 (int(params[17]), int(params[18])),
-					 (int(params[19]), int(params[20]))]
+	result.points = [Vector(int(params[15]), int(params[16])),
+					 Vector(int(params[17]), int(params[18])),
+					 Vector(int(params[19]), int(params[20]))]
 	return result, subLines
 
 # --------------------------------------------------------------------
@@ -1021,7 +1021,7 @@ class PolylineBase(Object):
 			if self.points[-1] == self.points[0]:
 				del self.points[-1]
 		else:
-			self.points.append(self.points[0])
+			self.points.append(copy.copy(self.points[0]))
 
 	def __str__(self):
 		pointCount = len(self.points)
@@ -1081,8 +1081,8 @@ class PolylineBase(Object):
 
 		pointCount = len(params) / 2
 		for pointIndex in range(pointCount):
-			self.points.append((int(params[pointIndex * 2]),
-								int(params[pointIndex * 2 + 1])))
+			self.points.append(Vector(int(params[pointIndex * 2]),
+									  int(params[pointIndex * 2 + 1])))
 
 		expectedPoints = (self._pointCount + (self.closed() and 1 or 0))
 		moreToCome = len(self.points) < expectedPoints
@@ -1130,10 +1130,10 @@ class PolyBox(PolylineBase):
 
 	def __init__(self, x1, y1, x2, y2):
 		PolylineBase.__init__(self)
-		self.points.append((x1, y1))
-		self.points.append((x2, y1))
-		self.points.append((x2, y2))
-		self.points.append((x1, y2))
+		self.points.append(Vector(x1, y1))
+		self.points.append(Vector(x2, y1))
+		self.points.append(Vector(x2, y2))
+		self.points.append(Vector(x1, y2))
 
 	def polylineType(self):
 		"""Return type of this polygon (ptBox for all `PolyBox` objects),
@@ -1356,8 +1356,8 @@ class SplineBase(Object):
 		if len(self.points) < expectedPoints:
 			pointCount = len(params) / 2
 			for pointIndex in range(pointCount):
-				self.points.append((int(params[pointIndex * 2]),
-									int(params[pointIndex * 2 + 1])))
+				self.points.append(Vector(int(params[pointIndex * 2]),
+										  int(params[pointIndex * 2 + 1])))
 			if len(self.points) > expectedPoints:
 				sys.stderr.write("WARNING: read too many points?!\n")
 				del self.points[expectedPoints:]
@@ -2190,17 +2190,3 @@ if __name__ == "__main__":
 	else:
 		import doctest
 		doctest.testfile('index.rst')
-
-# FIGPY=../Diplomarbeit/Text/Figures/Sources/fig.py
-# SED='sed s,\.0\+,,g'; for i in *.fig; do python $FIGPY $i | $SED > /tmp/foo && $SED $i | diff -ubd - /tmp/foo; done
-
-# ATM, what's changing when loading/saving as above is:
-# - the bounding boxes of splines
-# - the bounding boxes of compounds
-# - some spacing (XFig starts lines with "\t ", I am purposely leaving the " " out)
-# - the display of floating point values (number of trailing zeros)
-
-# TODO:
-# - pull common code from SplineBase and PolylineBase into common base class
-# - clean up reading code (File could group lines based on whitespace prefixes)
-# - check shape factors of ApproximatedSpline / InterpolatedSpline
