@@ -400,6 +400,20 @@ class Vector(object):
 	def dist(self, other):
 		return (self - other).length()
 
+	def __len__(self):
+		return 2
+
+	def __eq__(self, other):
+		try:
+			if len(other) != 2:
+				return False
+		except TypeError: # "len() of unsized object"
+			return False
+		return self[0] == other[0] and self[1] == other[1]
+
+	def __ne__(self, other):
+		return not self.__eq__(other)
+
 	def __repr__(self):
 		return "fig.Vector(%s, %s)" % (self.x, self.y)
 
