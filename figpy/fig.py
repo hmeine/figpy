@@ -1905,6 +1905,9 @@ class File(Container):
 									   (filename, lineIndex + extraLineCount + 1, line))
 					  raise
 				lineIndex += 1
+			assert lineIndex > 7, ".fig File truncated (header incomplete)"
+			if not self:
+				sys.stderr.write("WARNING: File empty (no objects read)!\n")
 
 	def append(self, object):
 		"""Adds the object to this document.  `object` is supposed to
