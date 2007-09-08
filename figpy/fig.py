@@ -1603,8 +1603,7 @@ class Container(list):
 		to quickly change properties on all contained objects.  See
 		the `Container` and `ObjectProxy` classes."""
 
-		result = ObjectProxy()
-		result.parent = self
+		result = ObjectProxy(parent = self)
 		for o in self.allObjects("type" in kwargs and kwargs["type"] == Compound):
 			match = True
 			for key, value in kwargs.items():
@@ -1696,6 +1695,10 @@ class ObjectProxy(Container):
 	  Text objects.)"""
 	
 	__slots__ = ("parent", )
+
+	def __init__(self, objects = [], parent = None):
+		Container.__init__(objects)
+		self.parent = parent
 	
 	def __setattr__(self, key, value):
 		if key == "parent":
@@ -1720,8 +1723,8 @@ class ObjectProxy(Container):
 		return result
 
 	def __getslice__(self, *args):
-		result = ObjectProxy(Container.__getslice__(self, *args))
-		result.parent = self.parent
+		result = ObjectProxy(Container.__getslice__(self, *args),
+							 self.parent)
 		return result
 
 	def remove(self, *args):
@@ -1737,8 +1740,11 @@ class ObjectProxy(Container):
 			Container.remove(self, *args)
 
 	def __add__(self, other):
+		parent = self.parent
+		if self.parent is not other.parent:
+			parent = None
 		if isinstance(other, list):
-			return ObjectProxy(list.__add__(self, other))
+			return ObjectProxy(list.__add__(self, other), parent)
 
 # --------------------------------------------------------------------
 #                             compounds
