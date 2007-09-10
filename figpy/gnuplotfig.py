@@ -72,3 +72,11 @@ class GnuplotFig(fig.File):
 		return fig.Vector(
 			xBegin[0] + (xEnd[0]-xBegin[0])*(x - xBegin[1])/(xEnd[1]-xBegin[1]),
 			yBegin[0] + (yEnd[0]-yBegin[0])*(y - yBegin[1])/(yEnd[1]-yBegin[1]))
+
+	def fixRedData(self):
+		"""Somehow, Gnuplot does not assign the first linestyle the
+		proper (red) color, but black.  Thus function corrects this
+		(by assigning red to all black elements of depth 10)."""
+		self.findObjects(depth = 10, penColor = fig.colorBlack) \
+							   .penColor = fig.colorRed
+
