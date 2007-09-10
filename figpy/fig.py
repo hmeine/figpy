@@ -1697,7 +1697,7 @@ class ObjectProxy(Container):
 	__slots__ = ("parent", )
 
 	def __init__(self, objects = [], parent = None):
-		Container.__init__(objects)
+		Container.__init__(self, objects)
 		self.parent = parent
 	
 	def __setattr__(self, key, value):
