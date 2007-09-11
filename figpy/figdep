@@ -7,7 +7,7 @@ for filename in sys.argv[1:]:
 	included = []
 	for o in fig.File(filename).allObjects():
 		if type(o) == fig.PictureBBox:
-			included.append(o.pictureFilename)
+			included.append(o.filename)
 	if included:
 		for ext in generatedExts:
 			if not ext.startswith("."):
