@@ -482,6 +482,18 @@ class Rect(object):
 	def height(self):
 		return self.y2 - self.y1
 
+	def left(self):
+		return self.x1
+
+	def right(self):
+		return self.x2
+
+	def top(self):
+		return self.y1
+
+	def bottom(self):
+		return self.y2
+
 	def upperLeft(self):
 		return self.x1, self.y1
 	
@@ -1265,18 +1277,31 @@ class SplineBase(Object):
 	"""Base class of Spline objects (`ApproximatedSpline`,
 	`InterpolatedSpline`, `XSpline`)."""
 	
-	__slots__ = ("points", "shapeFactors", "_closed", "_pointCount")
+	__slots__ = ("points", "_shapeFactors", "_closed", "_pointCount")
 
-	def __init__(self, points = None, shapeFactors = None):
+	def __init__(self, points = None, shapeFactors = None, closed = True):
 		Object.__init__(self)
 		self.points = points or []
-		self.shapeFactors = shapeFactors or []
-		self._closed = None
+		self._shapeFactors = shapeFactors or []
+		self._closed = closed
 
 	def closed(self):
 		"""Return whether this spline curve is closed."""
 		assert self._closed != None, "SplineBase.closed(): _closed not initialized!"
 		return self._closed
+
+	def shapeFactors(self):
+		"""Return shape factors.  The return value is fixed for
+		non-XSplines.  For XSplines, self._shapeFactors is used (no
+		public API ATM)."""
+		result = self._shapeFactors
+		if not len(result) or self.defaultShapeFactor():
+			# create default shapeFactors if not initialized
+			result = [self.defaultShapeFactor()] * len(self.points)
+			if not self.closed():
+				result[0] = 0.0
+				result[-1] = 0.0
+		return result
 
 	def changeType(self, splineType):
 		"""Change type of this Spline object.  `splineType` may be one
@@ -1335,7 +1360,7 @@ class SplineBase(Object):
 		for linePoints in map(None, *(i, )*12):
 			result += "\t" + _join(*[p for p in linePoints if p != None]) + "\n"
 
-		i = iter(self.shapeFactors)
+		i = iter(self.shapeFactors())
 		for lineSF in map(None, *(i, )*8):
 			result += "\t" + _join(*[str(sf) for sf in lineSF if sf != None]) + "\n"
 
@@ -1377,14 +1402,14 @@ class SplineBase(Object):
 				del self.points[expectedPoints:]
 			return True
 
-		if len(self.shapeFactors) < expectedPoints:
+		if len(self._shapeFactors) < expectedPoints:
 			sfCount = len(params)
 			for sfIndex in range(sfCount):
-				self.shapeFactors.append(float(params[sfIndex]))
-			moreToCome = len(self.shapeFactors) < expectedPoints
-			if len(self.shapeFactors) > expectedPoints:
+				self._shapeFactors.append(float(params[sfIndex]))
+			moreToCome = len(self._shapeFactors) < expectedPoints
+			if len(self._shapeFactors) > expectedPoints:
 				sys.stderr.write("WARNING: read too many shapeFactors?!\n")
-				del self.shapeFactors[expectedPoints:]
+				del self._shapeFactors[expectedPoints:]
 			if moreToCome:
 				return True
 
@@ -1395,6 +1420,9 @@ class ApproximatedSpline(SplineBase):
 	
 	__slots__ = ()
 
+	def defaultShapeFactor(self):
+		return 1
+
 	def splineType(self):
 		return self._closed and stClosedApproximated or stOpenApproximated
 
@@ -1403,6 +1431,9 @@ class InterpolatedSpline(SplineBase):
 	
 	__slots__ = ()
 
+	def defaultShapeFactor(self):
+		return -1
+
 	def splineType(self):
 		return self._closed and stClosedInterpolated or stOpenInterpolated
 
@@ -1410,6 +1441,9 @@ class XSpline(SplineBase):
 	"""Represents an open or closed 'x-spline' object."""
 	
 	__slots__ = ()
+
+	def defaultShapeFactor(self):
+		return 0 # ATT: this value is checked in changeType ATM
 
 	def splineType(self):
 		return self._closed and stClosedXSpline or stOpenXSpline
@@ -1505,6 +1539,9 @@ class Text(Object):
 					   _escapeText(self.text+"\x01")) + "\n"
 
 		return result
+
+	def __repr__(self):
+		return "<fig.Text at %s, '%s'>" % ((self.x, self.y), self.text)
 
 def _escapeText(text):
 	nonPrintable = re.compile("[\x00-\x08\x0e-\x1f\x80-\xff]")
