@@ -10,7 +10,14 @@ class GnuplotFig(fig.File):
 	  5: ticks
 	 10: data
 	100: second frame
-	(Furthermore, the frames are converted into proper boxes.)"""
+	(Furthermore, the frames are converted into proper boxes.)
+
+	If no logscale is used, the plot range is detected and stored in
+	xRange/yRange as (start,end) pairs, where start/end are itself
+	pairs of fig/plot coordinates.
+
+	The two methods fig2plot and plot2fig can be used to transform
+	vectors between the two coordinate systems."""
 
 	__slots__ = ("xRange", "yRange")
 
@@ -73,6 +80,13 @@ class GnuplotFig(fig.File):
 			xBegin[0] + (xEnd[0]-xBegin[0])*(x - xBegin[1])/(xEnd[1]-xBegin[1]),
 			yBegin[0] + (yEnd[0]-yBegin[0])*(y - yBegin[1])/(yEnd[1]-yBegin[1]))
 
+	def fig2plot(self, (x, y)):
+		xBegin, xEnd = self.xRange
+		yBegin, yEnd = self.yRange
+		return fig.Vector(
+			xBegin[1] + (xEnd[1]-xBegin[1])*(x - xBegin[0])/(xEnd[0]-xBegin[0]),
+			yBegin[1] + (yEnd[1]-yBegin[1])*(y - yBegin[0])/(yEnd[0]-yBegin[0]))
+
 	def fixRedData(self):
 		"""Somehow, Gnuplot does not assign the first linestyle the
 		proper (red) color, but black.  Thus function corrects this
@@ -80,3 +94,12 @@ class GnuplotFig(fig.File):
 		self.findObjects(depth = 10, penColor = fig.colorBlack) \
 							   .penColor = fig.colorRed
 
+	def addVerticalLine(self, xPos, **attr):
+		figPos = self.plot2fig((xPos, 0))[0]
+		frame = self.layer(4)[0].bounds()
+		line = fig.Polyline([(figPos, frame.top()),
+							 (figPos, frame.bottom())])
+		self.append(line)
+		for a in attr:
+			setattr(line, a, attr[a])
+		return line
