@@ -146,8 +146,11 @@ class TikZConverter(object):
 			elif isinstance(o, fig.PolylineBase):
 				self.writePolylineBase(o)
 			elif isinstance(o, fig.SplineBase):
-				self._warnOnce("X-splines cannot be correctly converted - exporting as simple path for now!")
-				self.writePolylineBase(o)
+				if True: # TODO: option
+					self._warnOnce("X-splines cannot be 100% correctly converted!")
+					self.writeSplineBase(o)
+				else:
+					self.writePolylineBase(o)
 			elif isinstance(o, fig.Text):
 				self.writeText(o)
 			else:
@@ -201,13 +204,13 @@ class TikZConverter(object):
 			if object.fillStyle == fig.fillStyleSolid:
 				pass
 			elif object.fillStyle < fig.fillStyleSolid:
-				if not fillColor:
+				if not fillColor or fillColor == "black":
 					fillColor = "black!%s" % (object.fillStyle*5)
 				else:
 					fillColor += "!%d!black" % (object.fillStyle*5)
 			elif object.fillStyle <= fig.fillStyleWhite:
-				if not fillColor:
-					self._warnOnce("fill style %s with default fill color should not happen!" % object.fillStyle)
+				if fillColor in ("black", "white", ""):
+					self._warnOnce("fill style %s with %s fill color should not happen!" % (object.fillStyle, fillColor or "default"))
 				fillColor += "!%d" % (100 - (object.fillStyle - fig.fillStyleSolid)*5)
 			elif object.fillStyle in _fillStyleMapping:
 				pattern = _fillStyleMapping[object.fillStyle]
@@ -298,6 +301,14 @@ class TikZConverter(object):
 			self.outFile.write(" -- cycle")
 		self.outFile.write(";\n")
 
+	def writeSplineBase(self, spline):
+		self.outFile.write(self.pathIntro(spline))
+
+		cycle = spline.closed() and " cycle" or ""
+
+		self.outFile.write(" plot[smooth%s] coordinates {%s};\n" % (
+			cycle, " ".join(map(self.coordinate, spline.points))))
+
 	def writePolyBox(self, polyBox):
 		self.outFile.write("%s %s rectangle %s;\n" % (
 			self.pathIntro(polyBox),
@@ -355,7 +366,7 @@ class TikZConverter(object):
 			textColor = self.defineColor("textColor", text.penColor)
 			str = r"\color{%s}%s" % (textColor, str)
 
-		self.outFile.write("\\pgftext[%s]{%s}" % (
+		self.outFile.write("\\pgftext[%s]{%s}\n" % (
 			",".join(options),
 			str))
 
