@@ -11,6 +11,20 @@ _latexChars = {
 	'\"': r"{\textquotedblright}",
 	}
 
+# TODO: double-check and extract numbers from texmf/tex/latex/base/size1[012].clo
+_latexFontSizes = {
+	5: "tiny",
+	7: "scriptsize",
+	8: "footnotesize",
+	9: "small",
+	10: "normalsize",
+	12: "large",
+	14: "Large",
+	18: "LARGE",
+	20: "huge",
+	24: "Huge",
+	}
+
 def escapeLaTeX(s):
 	result = ""
 	for ch in s:
@@ -346,7 +360,7 @@ class TikZConverter(object):
 		if text.y:
 			options.append("y=%s" % self.dimensionCM(-text.y))
 		if text.angle:
-			options.append("rotate=%s" % math.degrees(text.angle))
+			options.append("rotate=%s" % round(math.degrees(text.angle)))
 
 		if text.fontFlags & fig.ffSpecial:
 			str = text.text
@@ -357,10 +371,14 @@ class TikZConverter(object):
 		if not text.fontFlags & fig.ffRigid:
 			texSize *= self.fontMag
 
-		if texSize: # allow setting e.g. fontMag to 0 to prevent this:
-			baselineSkip = texSize * 1.2
-			str = r"\fontsize{%s}{%s}\selectfont{}%s" % (
-				texSize, baselineSkip, str)
+		if texSize: # TODO: allow setting e.g. fontMag to 0 to prevent this:
+			if texSize in _latexFontSizes: # TODO: switchable, 12pt support
+				if texSize != 10:
+					str = r"\%s{}%s" % (_latexFontSizes[texSize], str)
+			else:
+				baselineSkip = texSize * 1.2
+				str = r"\fontsize{%s}{%s}\selectfont{}%s" % (
+					texSize, baselineSkip, str)
 
 		if text.penColor != fig.colorDefault:
 			textColor = self.defineColor("textColor", text.penColor)
