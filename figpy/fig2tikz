@@ -119,6 +119,7 @@ class TikZConverter(object):
 			self.scale = 2.54/figFile.ppi # number from tneumann's fig2pgf
 		self.includeBaseDir = includeBaseDir
 		self.fontMag = self.figFile.magnification / 100.0
+		self.useTextNodes = False
 		self._definedColors = {}
 		self._warned = {}
 
@@ -166,7 +167,10 @@ class TikZConverter(object):
 				else:
 					self.writePolylineBase(o)
 			elif isinstance(o, fig.Text):
-				self.writeText(o)
+				if self.useTextNodes:
+					self.writeTextNode(o)
+				else:
+					self.writeText(o)
 			else:
 				self._warnOnce("%s objects not yet supported!" % type(o))
 
@@ -309,11 +313,11 @@ class TikZConverter(object):
 			self.dimensionCM(circle.radius[0])))
 
 	def writePolylineBase(self, poly):
-		self.outFile.write(self.pathIntro(poly))
-		self.outFile.write(" -- ".join(map(self.coordinate, poly.points)))
+		path = " -- ".join(map(self.coordinate, poly.points))
 		if poly.closed():
-			self.outFile.write(" -- cycle")
-		self.outFile.write(";\n")
+			path += " -- cycle"
+		self.outFile.write(
+			"%s %s;\n" % (self.pathIntro(poly), path))
 
 	def writeSplineBase(self, spline):
 		self.outFile.write(self.pathIntro(spline))
@@ -344,6 +348,33 @@ class TikZConverter(object):
 			self.includeBaseDir,
 			pictureBBox.filename))
 
+	def _textSizeCommand(self, text):
+		result = ""
+
+		texSize = text.fontSize
+		if not text.fontFlags & fig.ffRigid:
+			texSize *= self.fontMag
+
+		if texSize: # TODO: allow setting e.g. fontMag to 0 to prevent this:
+			if texSize in _latexFontSizes: # TODO: switchable, 12pt support
+				if texSize != 10:
+					result = r"\%s{}" % (_latexFontSizes[texSize], )
+			else:
+				baselineSkip = texSize * 1.2
+				result = r"\fontsize{%s}{%s}\selectfont{}" % (
+					texSize, baselineSkip, )
+
+		return result
+
+	def _textInFont(self, text):
+		if text.font == fig.fontZapfDingbats:
+			result = "".join([r"\ding{%d}" % ord(ch) for ch in text.text])
+		elif text.fontFlags & fig.ffSpecial:
+			result = text.text
+		else:
+			result = escapeLaTeX(text.text)
+		return result
+
 	def writeText(self, text):
 		if text.fontFlags & fig.ffHidden:
 			return
@@ -362,31 +393,15 @@ class TikZConverter(object):
 		if text.angle:
 			options.append("rotate=%s" % round(math.degrees(text.angle)))
 
-		if text.fontFlags & fig.ffSpecial:
-			str = text.text
-		else:
-			str = escapeLaTeX(text.text)
-
-		texSize = text.fontSize
-		if not text.fontFlags & fig.ffRigid:
-			texSize *= self.fontMag
-
-		if texSize: # TODO: allow setting e.g. fontMag to 0 to prevent this:
-			if texSize in _latexFontSizes: # TODO: switchable, 12pt support
-				if texSize != 10:
-					str = r"\%s{}%s" % (_latexFontSizes[texSize], str)
-			else:
-				baselineSkip = texSize * 1.2
-				str = r"\fontsize{%s}{%s}\selectfont{}%s" % (
-					texSize, baselineSkip, str)
+		str = self._textInFont(text)
 
 		if text.penColor != fig.colorDefault:
 			textColor = self.defineColor("textColor", text.penColor)
 			str = r"\color{%s}%s" % (textColor, str)
 
-		self.outFile.write("\\pgftext[%s]{%s}\n" % (
+		self.outFile.write("\\pgftext[%s]{%s%s}\n" % (
 			",".join(options),
-			str))
+			self._textSizeCommand(text), str))
 
 	def writeTextNode(self, text):
 		if text.fontFlags & fig.ffHidden:
@@ -406,23 +421,12 @@ class TikZConverter(object):
 		if text.angle:
 			self._warnOnce("rotated text is not yet supported!")
 
-		if text.fontFlags & fig.ffSpecial:
-			str = text.text
-		else:
-			str = escapeLaTeX(text.text)
+		str = self._textInFont(text)
 
-		texSize = text.fontSize
-		if not text.fontFlags & fig.ffRigid:
-			texSize *= self.fontMag
-
-		if texSize: # allow setting e.g. fontMag to 0 to prevent this:
-			baselineSkip = texSize * 1.2
-			str = r"\fontsize{%s}{%s}\selectfont{}%s" % (
-				texSize, baselineSkip, str)
-
-		self.outFile.write("\\path[%s]" % ",".join(options))
-		self.outFile.write("%s node[anchor=%s] {%s};\n" % (
-			self.coordinate((text.x, text.y)), anchor, str))
+		self.outFile.write("\\path[%s] %s node[anchor=%s] {%s%s};\n" % (
+			",".join(options),
+			self.coordinate((text.x, text.y)), anchor,
+			self._textSizeCommand(text), str))
 
 f = fig.File(sys.argv[1])
 includeBaseDir = ""
