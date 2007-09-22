@@ -120,6 +120,7 @@ class TikZConverter(object):
 		self.includeBaseDir = includeBaseDir
 		self.fontMag = self.figFile.magnification / 100.0
 		self.useTextNodes = False
+		self.defineYAxis = True
 		self._definedColors = {}
 		self._warned = {}
 
@@ -129,8 +130,12 @@ class TikZConverter(object):
 			sys.stderr.write("WARNING: %s\n" % message)
 
 	def coordinate(self, xy):
-		return "(%s,%s)" % (latexFloat( xy[0]*self.scale),
-							latexFloat(-xy[1]*self.scale))
+		x = xy[0]
+		y = xy[1]
+		if not self.defineYAxis:
+			y = -y
+		return "(%s,%s)" % (latexFloat(x*self.scale),
+							latexFloat(y*self.scale))
 
 	def dimensionCM(self, length):
 		return "%scm" % latexFloat(length*self.scale)
@@ -139,7 +144,10 @@ class TikZConverter(object):
 		return "%spt" % latexFloat(figPt*72./80, 1)
 
 	def writePicture(self):
-		self.outFile.write("\\begin{tikzpicture}[inner sep=0pt]\n")
+		options = ["inner sep=0pt"]
+		if self.defineYAxis:
+			options.append("y=-1cm")
+		self.outFile.write("\\begin{tikzpicture}[%s]\n" % ",".join(options))
 		for depth in reversed(self.figFile.layers()):
 		  self.outFile.write("\n%% objects at depth %d:\n" % depth)
 		  for o in self.figFile.layer(depth):
@@ -182,9 +190,13 @@ class TikZConverter(object):
 
 		r, g, b = self.figFile.colorRGB(figColor)
 		if self._definedColors.get(name, None) != (r,g,b):
-			self.outFile.write(
-				"\\definecolor{%s}{rgb}{%s,%s,%s}\n" %
-				(name, latexFloat(r/255.), latexFloat(g/255.), latexFloat(b/255.)))
+			if r == g == b:
+				self.outFile.write(
+					"\\definecolor{%s}{gray}{%s}\n" % (name, latexFloat(r/255.)))
+			else:
+				self.outFile.write(
+					"\\definecolor{%s}{rgb}{%s,%s,%s}\n" %
+					(name, latexFloat(r/255.), latexFloat(g/255.), latexFloat(b/255.)))
 			self._definedColors[name] = (r,g,b)
 		return name
 
