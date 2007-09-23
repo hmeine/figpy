@@ -1295,7 +1295,7 @@ class SplineBase(Object):
 		non-XSplines.  For XSplines, self._shapeFactors is used (no
 		public API ATM)."""
 		result = self._shapeFactors
-		if not len(result) or self.defaultShapeFactor():
+		if not len(result): # or self.defaultShapeFactor():
 			# create default shapeFactors if not initialized
 			result = [self.defaultShapeFactor()] * len(self.points)
 			if not self.closed():
@@ -1421,7 +1421,7 @@ class ApproximatedSpline(SplineBase):
 	__slots__ = ()
 
 	def defaultShapeFactor(self):
-		return 1
+		return 1.0
 
 	def splineType(self):
 		return self._closed and stClosedApproximated or stOpenApproximated
@@ -1432,7 +1432,7 @@ class InterpolatedSpline(SplineBase):
 	__slots__ = ()
 
 	def defaultShapeFactor(self):
-		return -1
+		return -1.0
 
 	def splineType(self):
 		return self._closed and stClosedInterpolated or stOpenInterpolated
@@ -1443,7 +1443,7 @@ class XSpline(SplineBase):
 	__slots__ = ()
 
 	def defaultShapeFactor(self):
-		return 0 # ATT: this value is checked in changeType ATM
+		return 0.0 # ATT: this value is checked in shapeFactors() ATM
 
 	def splineType(self):
 		return self._closed and stClosedXSpline or stOpenXSpline
@@ -1493,18 +1493,20 @@ class Text(Object):
 				 "font", "fontSize", "fontFlags", "angle",
 				 "length", "height")
 
-	def __init__(self, x, y, text, alignment = alignLeft):
+	def __init__(self, x, y, text,
+				 font = None, fontSize = 12, fontFlags = ffPostScript,
+				 alignment = alignLeft, angle = 0.0):
 		Object.__init__(self)
-		self.text = text
-		self.font = None
-		self.fontSize = 12
-		self.angle = 0.0
-		self.fontFlags = ffPostScript
-		self.height = 136
-		self.length = 100 # dummy value
 		self.x = x
 		self.y = y
+		self.text = text
+		self.font = font
+		self.fontSize = fontSize
+		self.fontFlags = fontFlags
 		self.alignment = alignment
+		self.angle = angle
+		self.height = 136
+		self.length = 100 # dummy value
 
 	def _guessHeight(self):
 		"""Guessed height of font in fig units."""
@@ -1562,7 +1564,8 @@ def _unescapeText(text):
 	return result
 
 def _readText(params, text):
-	result = Text(int(params[10]), int(params[11]), _unescapeText(text), int(params[0]))
+	result = Text(int(params[10]), int(params[11]), _unescapeText(text),
+				  alignment = int(params[0]))
 	result.penColor = int(params[1])
 	result.depth = int(params[2])
 	result.penStyle = int(params[3])
@@ -1769,16 +1772,23 @@ class ObjectProxy(Container):
 		container.  Else, remove given object from this container."""
 		
 		if not args:
-			assert self.parent != None, \
+			parent = self.container()
+			assert parent is not None, \
 				   "ObjectProxy.remove() needs access to the parent"
 			for ob in self:
-				self.parent.remove(ob)
+				parent.remove(ob)
 		else:
 			Container.remove(self, *args)
 
+	def container(self):
+		result = self.parent
+		while result and isinstance(result, ObjectProxy):
+			result = result.parent
+		return result
+
 	def __add__(self, other):
-		parent = self.parent
-		if self.parent is not other.parent:
+		parent = self.container()
+		if parent is not other.container():
 			parent = None
 		if isinstance(other, list):
 			return ObjectProxy(list.__add__(self, other), parent)
