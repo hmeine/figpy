@@ -1914,7 +1914,9 @@ class File(Container):
 						objectType = int(params[0])
 						subLineExpected = 0
 						if objectType == _figCustomColor:
-							self.addColor(CustomColor(int(params[1]), params[2]))
+							cc = self.addColor(CustomColor(int(params[1]), params[2]))
+							assert cc.index == colorCustom0 + len(self.colors) - 1, \
+								   "non-contiguous custom color indices found - not handled yet!"
 						elif objectType == _figPolygon:
 							currentObject, subLineExpected = _readPolylineBase(params[1:])
 							currentObject.comment = currentComment
@@ -2065,7 +2067,7 @@ class File(Container):
 		(With values from the range 0..255.)"""
 		
 		assert colorIndex >= 0 and colorIndex < colorCustom0 + len(self.colors), \
-			   "invalid color index"
+			   "invalid color index %d" % colorIndex
 		if colorIndex < colorCustom0:
 			return standardColors[colorIndex]
 		else:
