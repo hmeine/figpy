@@ -144,7 +144,7 @@ class TikZConverter(object):
 		return "%sbp" % latexFloat(figPt*72./80, 1)
 
 	def writePicture(self):
-		options = ["inner sep=0pt"]
+		options = ["inner sep=0pt", "even odd rule"]
 		if self.defineYAxis:
 			options.append("y=-1cm")
 		self.outFile.write("\\begin{tikzpicture}[%s]\n" % ",".join(options))
