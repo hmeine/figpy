@@ -371,6 +371,14 @@ class Vector(object):
 			return self.y
 		raise IndexError("Vector only has two components")
 
+	def __setitem__(self, index, value):
+		if index == 0 or index == -2:
+			self.x = value
+		elif index == 1 or index == -1:
+			self.y = value
+		else:
+			raise IndexError("Vector only has two components")
+
 	def __mul__(self, s):
 		return Vector(self[0]*s, self[1]*s)
 
