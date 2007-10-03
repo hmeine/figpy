@@ -84,16 +84,22 @@ _fillStyleMapping = {
 # 	fig.fillStyleLeft30 : "",
 # 	fig.fillStyleRight30 : "",
 # 	fig.fillStyleCrossed30 : "",
-# 	fig.fillStyleLeft45 : "",
-# 	fig.fillStyleRight45 : "",
-# 	fig.fillStyleCrossed45 : "",
-# 	fig.fillStyleBricks : "",
-# 	fig.fillStyleCircles : "",
-# 	fig.fillStyleHorizontalLines : "",
-# 	fig.fillStyleVerticalLines : "",
-	fig.fillStyleCrosshatch : "crosshatch",
+	fig.fillStyleLeft45 : "north west lines",
+	fig.fillStyleRight45 : "north east lines",
+ 	fig.fillStyleCrossed45 : "crosshatch",
+	fig.fillStyleHorizontalBricks : "bricks",
+# 	fig.fillStyleVerticalBricks : "",
+	fig.fillStyleHorizontalLines : "horizontal lines",
+	fig.fillStyleVerticalLines : "vertical lines",
+	fig.fillStyleCrosshatch : "grid",
+# 	fig.fillStyleHorizontalShingles1 : "",
+# 	fig.fillStyleHorizontalShingles2 : "",
+# 	fig.fillStyleVerticalShingles1 : "",
+# 	fig.fillStyleVerticalShingles2 : "",
 # 	fig.fillStyleFishScales : "",
 # 	fig.fillStyleSmallFishScales : "",
+# 	fig.fillStyleCircles : "",
+# 	fig.fillStyleHexagons : "",
 # 	fig.fillStyleOctagons : "",
 # 	fig.fillStyleHorizontalTireTreads : "",
 # 	fig.fillStyleVerticalTireTreads : "",
@@ -120,6 +126,7 @@ class TikZConverter(object):
 		self.includeBaseDir = includeBaseDir
 		self.fontMag = self.figFile.magnification / 100.0
 		self.useTextNodes = False
+		self.detectClosing = True
 		self.defineYAxis = True
 		self._definedColors = {}
 		self._warned = {}
@@ -151,6 +158,18 @@ class TikZConverter(object):
 		for depth in reversed(self.figFile.layers()):
 		  self.outFile.write("\n%% objects at depth %d:\n" % depth)
 		  for o in self.figFile.layer(depth):
+			if self.detectClosing and isinstance(o, fig.Polyline):
+				if o.points[-1] == o.points[0]:
+					o.changeType(fig.ptPolygon)
+					if len(o.points) == 4:
+						bb = o.bounds()
+						isRect = True
+						for p in o.points:
+							if p[0] not in (bb.x1, bb.x2) or \
+							   p[1] not in (bb.y1, bb.y2):
+								isRect = False
+						if isRect:
+							o.changeType(fig.ptBox)
 			if o.comment:
 				c = o.comment.rstrip()
 				self.outFile.write("%%%s\n" % c.replace("\n", "\n%"))
