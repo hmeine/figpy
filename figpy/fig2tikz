@@ -127,7 +127,11 @@ class TikZConverter(object):
 		self.fontMag = self.figFile.magnification / 100.0
 		self.useTextNodes = False
 		self.detectClosing = True
+		self.detectGraphs = False
+		self.logicalThickness = False
 		self.defineYAxis = True
+		self._circleNodeCount = 0
+		self._nodePositions = {}
 		self._definedColors = {}
 		self._warned = {}
 
@@ -137,6 +141,10 @@ class TikZConverter(object):
 			sys.stderr.write("WARNING: %s\n" % message)
 
 	def coordinate(self, xy):
+		named = self._nodePositions.get(tuple(xy), None)
+		if named:
+			return "(%s)" % named
+
 		x = xy[0]
 		y = xy[1]
 		if not self.defineYAxis:
@@ -150,11 +158,28 @@ class TikZConverter(object):
 	def figPt(self, figPt):
 		return "%sbp" % latexFloat(figPt*72./80, 1)
 
+	def getNode(self, circle): # TODO: allow other objects
+		if not self.detectGraphs:
+			return None
+		self._circleNodeCount += 1 # TODO: allow unnamed nodes
+		name = "circle%d" % self._circleNodeCount
+		self._nodePositions[tuple(circle.center)] = name
+		return name
+
 	def writePicture(self):
 		options = ["inner sep=0pt", "even odd rule"]
 		if self.defineYAxis:
 			options.append("y=-1cm")
 		self.outFile.write("\\begin{tikzpicture}[%s]\n" % ",".join(options))
+
+		if self.detectGraphs:
+			circles = self.figFile.findObjects(type = fig.Circle)
+			if circles:
+				self.outFile.write("\n% circle nodes:\n")
+			for circ in circles:
+				self.writeCircle(circ)
+			circles.remove() # don't output twice
+
 		for depth in reversed(self.figFile.layers()):
 		  self.outFile.write("\n%% objects at depth %d:\n" % depth)
 		  for o in self.figFile.layer(depth):
@@ -235,7 +260,10 @@ class TikZConverter(object):
 				options.append(penColor)
 
 			if object.lineWidth > 1:
-				options.append("line width=%s" % self.figPt(object.lineWidth-1))
+				if self.logicalThickness and object.lineWidth <= 5:
+					options.append(("semithick", "thick", "very thick", "ultra thick")[object.lineWidth-1])
+				else:					
+					options.append("line width=%s" % self.figPt(object.lineWidth-1))
 			if object.capStyle != fig.capStyleButt:
 				options.append("cap=%s" % _capStyleMapping[object.capStyle])
 			if object.joinStyle != fig.joinStyleMiter:
@@ -341,10 +369,17 @@ class TikZConverter(object):
 			self.dimensionCM(ellipse.radius[1])))
 
 	def writeCircle(self, circle):
-		self.outFile.write("%s %s circle (%s);\n" % (
-			self.pathIntro(circle),
-			self.coordinate(circle.center),
-			self.dimensionCM(circle.radius[0])))
+		center = self.coordinate(circle.center)
+		node = self.getNode(circle)
+		if node is None:
+			tikzObject = "circle (%s)" % (self.dimensionCM(circle.radius[0]), )
+		else:
+			if node: # named node?
+				node = " (%s)" % node
+			tikzObject = "node[minimum size=%s]%s {}" % (
+				self.dimensionCM(circle.radius[0]), node)
+		self.outFile.write("%s %s %s;\n" % (
+			self.pathIntro(circle), center, tikzObject))
 
 	def writePolylineBase(self, poly):
 		path = " -- ".join(map(self.coordinate, poly.points))
