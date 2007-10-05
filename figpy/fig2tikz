@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-import fig, sys, math
+import fig, sys, math, optparse
 
 _latexChars = {
 	'^':  r"{\textasciicircum}",
@@ -114,6 +114,66 @@ def arrowCode(arrow):
 		result = "open " + result
 	return result
 
+class Options(list):
+	def __setitem__(self, key, value):
+		if isinstance(key, int):
+			list.__setitem__(self, key, value)
+		else:
+			for i, (existing, _) in enumerate(self):
+				if key == existing:
+					del self[i]
+					break
+			self.append((key, value))
+
+	def __getitem__(self, index):
+		if isinstance(index, int):
+			list.__getitem__(self, index)
+		else:
+			for key, value in self:
+				if key == index:
+					return value
+			raise KeyError("Option '%s' not set!" % index)
+
+	def __delitem__(self, index):
+		if isinstance(index, int):
+			list.__delitem__(self, index)
+		else:
+			for i, (existing, value) in enumerate(self):
+				if index == existing:
+					list.__delitem__(self, i)
+					return
+			raise KeyError("Option '%s' not set!" % index)
+
+	def __str__(self):
+		if not self:
+			return ""
+		result = []
+		for key, value in self:
+			if value:
+				result.append("%s=%s" % (key, value))
+			else:
+				result.append(key)
+		return "[%s]" % (",".join(result), )
+
+	def get(self, key, default):
+		for existing, value in self:
+			if existing == key:
+				return value
+		return default
+
+	def __contains__(self, key):
+		for existing, value in self:
+			if existing == key:
+				return True
+		return False
+
+	def append(self, option):
+		if isinstance(option, str):
+			list.append(self, (option, None))
+		else:
+			assert len(option) == 2
+			list.append(self, option)
+
 class TikZConverter(object):
 	def __init__(self, figFile, outFile, includeBaseDir = ""):
 		self.figFile = figFile
@@ -123,13 +183,15 @@ class TikZConverter(object):
 			self.scale = 8./3./figFile.ppi
 		else:
 			self.scale = 2.54/figFile.ppi # number from tneumann's fig2pgf
-		self.includeBaseDir = includeBaseDir
 		self.fontMag = self.figFile.magnification / 100.0
+
+		self.includeBaseDir = includeBaseDir
 		self.useTextNodes = False
 		self.detectClosing = True
 		self.detectGraphs = False
-		self.logicalThickness = False
+		self.logicalThickness = True
 		self.defineYAxis = True
+
 		self._circleNodeCount = 0
 		self._nodePositions = {}
 		self._definedColors = {}
@@ -167,10 +229,15 @@ class TikZConverter(object):
 		return name
 
 	def writePicture(self):
-		options = ["inner sep=0pt", "even odd rule"]
+		options = Options()
+		if self.optimalAppearance:
+			options["inner sep"] = "0pt"
+			options.append("even odd rule")
+
 		if self.defineYAxis:
-			options.append("y=-1cm")
-		self.outFile.write("\\begin{tikzpicture}[%s]\n" % ",".join(options))
+			options["y"] = "-1cm"
+
+		self.outFile.write("\\begin{tikzpicture}%s\n" % options)
 
 		if self.detectGraphs:
 			circles = self.figFile.findObjects(type = fig.Circle)
@@ -244,34 +311,29 @@ class TikZConverter(object):
 			self._definedColors[name] = (r,g,b)
 		return name
 
-	def pathIntro(self, object, options = None):
-		if not options:
-			options = []
+	def tikzOptions(self, object):
+		options = Options()
 
-		command = ""
-
-		penColor = None
-		
 		if object.lineWidth:
-			command = "draw"
-
 			if object.penColor != fig.colorDefault:
 				penColor = self.defineColor("penColor", object.penColor)
-				options.append(penColor)
+				options["draw"] = penColor
+			else:
+				options["draw"] = None
 
 			if object.lineWidth > 1:
 				if self.logicalThickness and object.lineWidth <= 5:
-					options.append(("semithick", "thick", "very thick", "ultra thick")[object.lineWidth-1])
-				else:					
-					options.append("line width=%s" % self.figPt(object.lineWidth-1))
+					options.append(("semithick", "thick", "very thick", "ultra thick")[object.lineWidth-2])
+				else:
+					options["line width"] = self.figPt(object.lineWidth-1)
 			if object.capStyle != fig.capStyleButt:
-				options.append("cap=%s" % _capStyleMapping[object.capStyle])
+				options["cap"] = _capStyleMapping[object.capStyle]
 			if object.joinStyle != fig.joinStyleMiter:
-				options.append("join=%s" % _joinStyleMapping[object.joinStyle])
+				options["join"] = _joinStyleMapping[object.joinStyle]
 
 		if object.fillStyle != fig.fillStyleNone:
 			pattern = ""
-			fillColor = ""
+			fillColor = None
 			if object.fillColor != fig.colorDefault:
 				if object.fillColor == object.penColor and object.lineWidth:
 					fillColor = penColor
@@ -286,7 +348,7 @@ class TikZConverter(object):
 				else:
 					fillColor += "!%d!black" % (object.fillStyle*5)
 			elif object.fillStyle <= fig.fillStyleWhite:
-				if fillColor in ("black", "white", ""):
+				if fillColor in ("black", "white", None):
 					self._warnOnce("fill style %s with %s fill color should not happen!" % (object.fillStyle, fillColor or "default"))
 				fillColor += "!%d" % (100 - (object.fillStyle - fig.fillStyleSolid)*5)
 			elif object.fillStyle in _fillStyleMapping:
@@ -294,21 +356,19 @@ class TikZConverter(object):
 			else:
 				self._warnOnce("fill style %s not yet supported!" % object.fillStyle)
 
-			if not command:
-				command = "fill"
-				if fillColor:
-					options.insert(0, fillColor)
-			elif fillColor == penColor:
-				command = "filldraw"
+			if fillColor == options.get("draw", False):
+				options["draw"] = None
+				options["color"] = fillColor
+				options["fill"] = None
 			else:
-				options.append("fill=%s" % fillColor)
+				options["fill"] = fillColor
 			if pattern:
-				options.append("pattern=%s" % pattern)
+				options["pattern"] = pattern
 
 		if object.lineStyle == fig.lineStyleDotted:
-			options.append("style=dotted")
+			options.append("dotted")
 		elif object.lineStyle == fig.lineStyleDashed:
-			options.append("style=dashed")
+			options.append("dashed")
 		elif object.lineStyle not in (fig.lineStyleDefault, fig.lineStyleSolid):
 			# TODO style=solid in TikZ?
 			self._warnOnce("line style %s not yet supported!" % object.lineStyle)
@@ -317,11 +377,25 @@ class TikZConverter(object):
 			options.append(arrowCode(object.backwardArrow) +
 						   "-" + arrowCode(object.forwardArrow))
 
+		return options
+
+	def pathIntro(self, object, options = None):
+		if not options:
+			options = self.tikzOptions(object)
+		else:
+			options.extend(self.tikzOptions(object))
+
+		command = ""
+		if options.get("draw", False) is None:
+			command = "draw"
+			del options["draw"]
+		if options.get("fill", False) is None:
+			command = "fill" + command
+			del options["fill"]
+		
 		if not command:
 			return "%"
-		if not options:
-			return "\\%s" % (command, )
-		return "\\%s[%s]" % (command, ",".join(options))
+		return "\\%s%s" % (command, options)
 
 	def writeArcBase(self, arc):
 		a1, a2 = arc.angles()
@@ -372,14 +446,17 @@ class TikZConverter(object):
 		center = self.coordinate(circle.center)
 		node = self.getNode(circle)
 		if node is None:
-			tikzObject = "circle (%s)" % (self.dimensionCM(circle.radius[0]), )
+			self.outFile.write("%s %s circle (%s);\n" % (
+				self.pathIntro(circle), center,
+				self.dimensionCM(circle.radius[0])))
 		else:
+			options = self.tikzOptions(circle)
+			options.insert(0, ("circle", None))
 			if node: # named node?
 				node = " (%s)" % node
-			tikzObject = "node[minimum size=%s]%s {}" % (
-				self.dimensionCM(circle.radius[0]), node)
-		self.outFile.write("%s %s %s;\n" % (
-			self.pathIntro(circle), center, tikzObject))
+			options["minimum size"] = self.dimensionCM(circle.radius[0]*2)
+			self.outFile.write("\\node%s at %s%s {};\n" % (
+				options, center, node))
 
 	def writePolylineBase(self, poly):
 		path = " -- ".join(map(self.coordinate, poly.points))
@@ -476,9 +553,9 @@ class TikZConverter(object):
 		if text.fontFlags & fig.ffHidden:
 			return
 
-		options = ["draw"]
+		options = Options()
 		if text.penColor != fig.colorDefault:
-			options.append("color=" + self.defineColor("textColor", text.penColor))
+			options["color"] = self.defineColor("textColor", text.penColor)
 
 		if text.alignment == fig.alignLeft:
 			anchor = "base west"
@@ -494,15 +571,46 @@ class TikZConverter(object):
 
 		str = self._textInFont(text)
 
-		self.outFile.write("\\path[%s] %s node[anchor=%s] {%s%s};\n" % (
-			",".join(options),
+		self.outFile.write("\\path%s %s node[anchor=%s] {%s%s};\n" % (
+			options,
 			self.coordinate((text.x, text.y)), anchor,
 			self._textSizeCommand(text), str))
 
-f = fig.File(sys.argv[1])
-includeBaseDir = ""
-if len(sys.argv) > 2:
-	includeBaseDir = sys.argv[2]
+# --------------------------------------------------------------------
 
-c = TikZConverter(f, sys.stdout, includeBaseDir)
+op = optparse.OptionParser(usage="%prog [options] foo.fig > foo.tikz")
+op.add_option("-a", "--appearance", action = "store_true",
+			  dest = "appearance", default = False,
+			  help = "optimize for most similar appearance at the price of more verbose code (default: off)")
+op.add_option("-f", "--nofonts", action = "store_true",
+			  dest = "nofonts", default = False,
+			  help = "do not output fontsize commands")
+op.add_option("-n", "--nodes", action = "store_true",
+			  dest = "nodes", default = False,
+			  help = "try to recognize graphs and connect named nodes (only circles ATM)")
+op.add_option("-t", "--textnodes", action = "store_true",
+			  dest = "textNodes", default = False,
+			  help = "put text into nodes (default: use \\pgftext, support rotation)")
+op.add_option("-b", "--baseDir", action = "store",
+			  dest = "basedir", default = "", metavar = "IMAGEDIR/",
+			  help = "path prefix that is directly prepended before image filenames (use this if you \\input the TikZ code from another directory)")
+op.add_option("-y", "--yaxis", action = "store_false",
+			  dest = "defineYAxis", default = True,
+			  help = "don't redefine Y axis (default: use y=-1cm for more natural coordinates within TikZ code)")
+options, args = op.parse_args()
+
+# --------------------------------------------------------------------
+
+includeBaseDir = ""
+if len(args) > 1:
+	includeBaseDir = args[1]
+
+c = TikZConverter(fig.File(args[0]), sys.stdout, includeBaseDir)
+c.detectGraphs = options.nodes
+c.useTextNodes = options.textNodes
+if options.nofonts:
+	c.fontMag = 0
+c.logicalThickness = not options.appearance
+c.optimalAppearance = options.appearance
+c.defineYAxis = options.defineYAxis
 c.writePicture()
