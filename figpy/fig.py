@@ -271,6 +271,14 @@ fontSymbol                         = 32
 fontZapfChanceryMediumItalic       = 33
 fontZapfDingbats                   = 34
 
+#{ LaTeX font constants (cf. `Text.font` property, only valid if `Text.fontFlags` & ffPostScript == 0)
+fontLaTeXDefault = 0
+fontLaTeXRoman = 1
+fontLaTeXBold = 2
+fontLaTeXItalic = 3
+fontLaTeXSansSerif = 4
+fontLaTeXTypewriter = 5
+
 #{ font flag constants (cf. `Text.fontFlags` property)
 ffRigid      = 1
 ffSpecial    = 2
@@ -503,16 +511,17 @@ class Rect(object):
 		return self.y2
 
 	def upperLeft(self):
-		return self.x1, self.y1
+		return Vector(self.x1, self.y1)
 	
 	def lowerRight(self):
-		return self.x2, self.y2
+		return Vector(self.x2, self.y2)
 	
 	def center(self):
-		return (self.x2 + self.x1) / 2, (self.y2 + self.y1) / 2
+		return Vector((self.x2 + self.x1) / 2,
+					  (self.y2 + self.y1) / 2)
 	
 	def size(self):
-		return self.width(), self.height()
+		return Vector(self.width(), self.height())
 
 	def empty(self):
 		return self._empty
@@ -845,10 +854,10 @@ class EllipseBase(Object):
 	def __init__(self):
 		Object.__init__(self)
 		self.angle = 0.0
-		self.center = (0, 0)
-		self.radius = (0, 0)
-		self.start = (0, 0)
-		self.end = (0, 0)
+		self.center = Vector(0, 0)
+		self.radius = Vector(0, 0)
+		self.start = Vector(0, 0)
+		self.end = Vector(0, 0)
 
 	def changeType(self, ellipseType):
 		"""Change type of this Ellipse object.  `ellipseType` may be one
@@ -922,10 +931,10 @@ def _readEllipseBase(params):
 	result.fillStyle = int(params[7])
 	result.styleValue = float(params[8])
 	result.angle = float(params[10])
-	result.center = ((int(params[11]), int(params[12])))
-	result.radius = ((int(params[13]), int(params[14])))
-	result.start = ((int(params[15]), int(params[16])))
-	result.end = ((int(params[17]), int(params[18])))
+	result.center = Vector(int(params[11]), int(params[12]))
+	result.radius = Vector(int(params[13]), int(params[14]))
+	result.start = Vector(int(params[15]), int(params[16]))
+	result.end = Vector(int(params[17]), int(params[18]))
 	return result, 0
 
 class Ellipse(EllipseBase):
@@ -1056,6 +1065,15 @@ class PolylineBase(Object):
 				del self.points[-1]
 		else:
 			self.points.append(copy.copy(self.points[0]))
+
+	def segments(self):
+		it = iter(self.points)
+		prev = it.next()
+		for point in it:
+			yield (prev, point)
+			prev = point
+		if self.closed():
+			yield (prev, self.points[0])
 
 	def __str__(self):
 		pointCount = len(self.points)
@@ -1540,7 +1558,8 @@ class Text(Object):
 	def __str__(self):
 		font = self.font
 		if self.font is None:
-			font = self.fontFlags & ffPostScript and fontDefault or 0
+			font = self.fontFlags & ffPostScript \
+				   and fontDefault or fontLaTeXDefault
 		result = _formatComment(self.comment) + \
 				 _join(_figText, self.alignment,
 					   self.penColor, self.depth, self.penStyle,
