@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 import fig, sys, math, optparse
 
+# FIXME: arrow colors (regression)
+
 _latexChars = {
 	'^':  r"{\textasciicircum}",
 	'~':  r"{\textasciitilde}",
@@ -186,9 +188,11 @@ class TikZConverter(object):
 		self.fontMag = self.figFile.magnification / 100.0
 
 		self.includeBaseDir = includeBaseDir
-		self.useTextNodes = False
+		self.useTextNodes = True
+		self.textAnchor = "base"
+		self.splinesAsPolylines = True
 		self.detectClosing = True
-		self.detectGraphs = False
+		self.detectNodes = False
 		self.logicalThickness = True
 		self.defineYAxis = True
 
@@ -221,7 +225,7 @@ class TikZConverter(object):
 		return "%sbp" % latexFloat(figPt*72./80, 1)
 
 	def getNode(self, circle): # TODO: allow other objects
-		if not self.detectGraphs:
+		if not self.detectNodes:
 			return None
 		self._circleNodeCount += 1 # TODO: allow unnamed nodes
 		name = "circle%d" % self._circleNodeCount
@@ -239,7 +243,7 @@ class TikZConverter(object):
 
 		self.outFile.write("\\begin{tikzpicture}%s\n" % options)
 
-		if self.detectGraphs:
+		if self.detectNodes:
 			circles = self.figFile.findObjects(type = fig.Circle)
 			if circles:
 				self.outFile.write("\n% circle nodes:\n")
@@ -280,11 +284,11 @@ class TikZConverter(object):
 			elif isinstance(o, fig.PolylineBase):
 				self.writePolylineBase(o)
 			elif isinstance(o, fig.SplineBase):
-				if True: # TODO: option
+				if self.splinesAsPolylines:
+					self.writePolylineBase(o)
+				else:
 					self._warnOnce("X-splines cannot be 100% correctly converted!")
 					self.writeSplineBase(o)
-				else:
-					self.writePolylineBase(o)
 			elif isinstance(o, fig.Text):
 				if self.useTextNodes:
 					self.writeTextNode(o)
@@ -356,7 +360,7 @@ class TikZConverter(object):
 			else:
 				self._warnOnce("fill style %s not yet supported!" % object.fillStyle)
 
-			if fillColor == options.get("draw", False):
+			if fillColor and fillColor == options.get("draw", False):
 				options["draw"] = None
 				options["color"] = fillColor
 				options["fill"] = None
@@ -366,16 +370,17 @@ class TikZConverter(object):
 				options["pattern"] = pattern
 
 		if object.lineStyle == fig.lineStyleDotted:
-			options.append("dotted")
+			options["style"] = "dotted"
 		elif object.lineStyle == fig.lineStyleDashed:
-			options.append("dashed")
+			options["style"] = "dashed"
 		elif object.lineStyle not in (fig.lineStyleDefault, fig.lineStyleSolid):
 			# TODO style=solid in TikZ?
 			self._warnOnce("line style %s not yet supported!" % object.lineStyle)
 
 		if object.forwardArrow or object.backwardArrow:
-			options.append(arrowCode(object.backwardArrow) +
-						   "-" + arrowCode(object.forwardArrow))
+			options["arrows"] = "%s-%s" % (
+				arrowCode(object.backwardArrow),
+				arrowCode(object.forwardArrow))
 
 		return options
 
@@ -394,7 +399,8 @@ class TikZConverter(object):
 			del options["fill"]
 		
 		if not command:
-			return "%"
+			command = "path"
+			#return "%"
 		return "\\%s%s" % (command, options)
 
 	def writeArcBase(self, arc):
@@ -481,8 +487,8 @@ class TikZConverter(object):
 
 	def writeArcBox(self, arcBox):
 		self.outFile.write("%s %s rectangle %s;\n" % (
-			self.pathIntro(arcBox, options = [
-			"rounded corners=%s" % self.figPt(arcBox.radius)]),
+			self.pathIntro(arcBox, options = Options([
+			("rounded corners", self.figPt(arcBox.radius))])),
 			self.coordinate(arcBox.points[0]),
 			self.coordinate(arcBox.points[2])))
 
@@ -514,11 +520,29 @@ class TikZConverter(object):
 
 	def _textInFont(self, text):
 		if text.font == fig.fontZapfDingbats:
+			# FIXME: \usepackage{pifont}
 			result = "".join([r"\ding{%d}" % ord(ch) for ch in text.text])
 		elif text.fontFlags & fig.ffSpecial:
 			result = text.text
 		else:
 			result = escapeLaTeX(text.text)
+
+		if text.fontFlags & fig.ffPostScript:
+			pass # TODO
+		else:
+			if text.font == fig.fontLaTeXDefault:
+				pass
+			elif text.font == fig.fontLaTeXRoman:
+				result = r"\rmfamily " + result
+			elif text.font == fig.fontLaTeXBold:
+				result = r"\bfseries " + result
+			elif text.font == fig.fontLaTeXItalic:
+				result = r"\itshape " + result
+			elif text.font == fig.fontLaTeXSansSerif:
+				result = r"\sffamily " + result
+			elif text.font == fig.fontLaTeXTypewriter:
+				result = r"\ttfamily " + result
+
 		return result
 
 	def writeText(self, text):
@@ -554,26 +578,26 @@ class TikZConverter(object):
 			return
 
 		options = Options()
-		if text.penColor != fig.colorDefault:
-			options["color"] = self.defineColor("textColor", text.penColor)
+		nodeOptions = Options()
 
+		if text.penColor != fig.colorDefault:
+			nodeOptions["text"] = self.defineColor("textColor", text.penColor)
+
+		anchor = self.textAnchor
 		if text.alignment == fig.alignLeft:
-			anchor = "base west"
+			anchor += " west"
 		elif text.alignment == fig.alignRight:
-			anchor = "base east"
-		else:
-			anchor = "base"
+			anchor += " east"
+		nodeOptions["anchor"] = anchor
 
 		if text.angle:
-			# rotates around origin:
-			#options.append("rotate=%s" % round(math.degrees(text.angle)))
-			self._warnOnce("rotated text is not yet supported!")
+			nodeOptions["rotate"] = round(math.degrees(text.angle))
 
 		str = self._textInFont(text)
 
-		self.outFile.write("\\path%s %s node[anchor=%s] {%s%s};\n" % (
+		self.outFile.write("\\path%s %s node%s {%s%s};\n" % (
 			options,
-			self.coordinate((text.x, text.y)), anchor,
+			self.coordinate((text.x, text.y)), nodeOptions,
 			self._textSizeCommand(text), str))
 
 # --------------------------------------------------------------------
@@ -582,35 +606,45 @@ op = optparse.OptionParser(usage="%prog [options] foo.fig > foo.tikz")
 op.add_option("-a", "--appearance", action = "store_true",
 			  dest = "appearance", default = False,
 			  help = "optimize for most similar appearance at the price of more verbose code (default: off)")
-op.add_option("-f", "--nofonts", action = "store_true",
-			  dest = "nofonts", default = False,
-			  help = "do not output fontsize commands")
-op.add_option("-n", "--nodes", action = "store_true",
-			  dest = "nodes", default = False,
-			  help = "try to recognize graphs and connect named nodes (only circles ATM)")
-op.add_option("-t", "--textnodes", action = "store_true",
-			  dest = "textNodes", default = False,
-			  help = "put text into nodes (default: use \\pgftext, support rotation)")
-op.add_option("-b", "--baseDir", action = "store",
-			  dest = "basedir", default = "", metavar = "IMAGEDIR/",
+op.add_option("-b", "--basedir", action = "store",
+			  dest = "baseDir", default = "", metavar = "IMAGEDIR/",
 			  help = "path prefix that is directly prepended before image filenames (use this if you \\input the TikZ code from another directory)")
 op.add_option("-y", "--yaxis", action = "store_false",
 			  dest = "defineYAxis", default = True,
 			  help = "don't redefine Y axis (default: use y=-1cm for more natural coordinates within TikZ code)")
+op.add_option("--anchor", action = "store",
+			  dest = "textAnchor", default = "base",
+			  help = "vertical anchor, one of 'base', 'center', 'north', 'south' (default: base)")
+op.add_option("-f", "--nofonts", action = "store_true",
+			  dest = "nofonts", default = False,
+			  help = "do not output fontsize commands")
+op.add_option("--detectnodes", action = "store_true",
+			  dest = "detectNodes", default = False,
+			  help = "try to recognize graphs and connect named nodes (only circles ATM)")
+# op.add_option("-t", "--textnodes", action = "store_true",
+# 			  dest = "textNodes", default = False,
+# 			  help = "put text into nodes (default: use \\pgftext, support rotation)")
 options, args = op.parse_args()
+
+# FIXME: more natural arguments like
+# --pattern = off|on
+# --fonts off|type|on
+# --splines lines|plot
 
 # --------------------------------------------------------------------
 
-includeBaseDir = ""
-if len(args) > 1:
-	includeBaseDir = args[1]
+assert len(args) == 1
 
-c = TikZConverter(fig.File(args[0]), sys.stdout, includeBaseDir)
-c.detectGraphs = options.nodes
-c.useTextNodes = options.textNodes
+c = TikZConverter(fig.File(args[0]), sys.stdout)
+c.includeBaseDir = options.baseDir
+c.detectNodes = options.detectNodes
+#c.useTextNodes = options.textNodes
+c.textAnchor = options.textAnchor
 if options.nofonts:
 	c.fontMag = 0
 c.logicalThickness = not options.appearance
 c.optimalAppearance = options.appearance
 c.defineYAxis = options.defineYAxis
+c.splinesAsPolylines = True # FIXME
+c.detectClosing = True # TODO?
 c.writePicture()
