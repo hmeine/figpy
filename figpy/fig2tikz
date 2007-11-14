@@ -2,6 +2,12 @@
 import fig, sys, math, optparse
 
 # FIXME: arrow colors (regression)
+# TODO (good test figure: lemma1.fig):
+# - tolerance parameter
+#   * for grouping identical coordinates
+#   * for detecting points on a circle
+# - recognize node labels (i.e. text near a circular node)
+# - only convert small circles into nodes
 
 _latexChars = {
 	'^':  r"{\textasciicircum}",
@@ -152,7 +158,10 @@ class Options(list):
 		result = []
 		for key, value in self:
 			if value:
-				result.append("%s=%s" % (key, value))
+				if key in ("style", "color"):
+					result.append(value)
+				else:
+					result.append("%s=%s" % (key, value))
 			else:
 				result.append(key)
 		return "[%s]" % (",".join(result), )
@@ -193,6 +202,8 @@ class TikZConverter(object):
 		self.splinesAsPolylines = True
 		self.detectClosing = True
 		self.detectNodes = False
+		self.maxNodeRadius = fig.unitCM
+		self.connectTolerance = None
 		self.logicalThickness = True
 		self.defineYAxis = True
 
@@ -207,9 +218,19 @@ class TikZConverter(object):
 			sys.stderr.write("WARNING: %s\n" % message)
 
 	def coordinate(self, xy):
+		"""xy should be a fig coordinate (fig.Vector) to be converted
+		to a TikZ coordinate (returned as str)."""
+		
 		named = self._nodePositions.get(tuple(xy), None)
 		if named:
 			return "(%s)" % named
+		elif self.connectTolerance:
+			nearest = (self.connectTolerance, None)
+			for pos in self._nodePositions.keys():
+				if xy.dist(pos) < nearest[0]:
+					nearest = (xy.dist(pos), pos)
+			if nearest[1]:
+				return "(%s)" % self._nodePositions[nearest[1]]
 
 		x = xy[0]
 		y = xy[1]
@@ -226,6 +247,8 @@ class TikZConverter(object):
 
 	def getNode(self, circle): # TODO: allow other objects
 		if not self.detectNodes:
+			return None
+		if circle.radius[0] > self.maxNodeRadius:
 			return None
 		self._circleNodeCount += 1 # TODO: allow unnamed nodes
 		name = "circle%d" % self._circleNodeCount
@@ -244,12 +267,11 @@ class TikZConverter(object):
 		self.outFile.write("\\begin{tikzpicture}%s\n" % options)
 
 		if self.detectNodes:
+			self.outFile.write("\n% circle nodes:\n")
 			circles = self.figFile.findObjects(type = fig.Circle)
-			if circles:
-				self.outFile.write("\n% circle nodes:\n")
-			for circ in circles:
-				self.writeCircle(circ)
-			circles.remove() # don't output twice
+			for circle in circles:
+				if self.writeCircleNode(circle):
+					self.figFile.remove(circle) # don't output twice
 
 		for depth in reversed(self.figFile.layers()):
 		  self.outFile.write("\n%% objects at depth %d:\n" % depth)
@@ -284,11 +306,7 @@ class TikZConverter(object):
 			elif isinstance(o, fig.PolylineBase):
 				self.writePolylineBase(o)
 			elif isinstance(o, fig.SplineBase):
-				if self.splinesAsPolylines:
-					self.writePolylineBase(o)
-				else:
-					self._warnOnce("X-splines cannot be 100% correctly converted!")
-					self.writeSplineBase(o)
+				self.writeSplineBase(o)
 			elif isinstance(o, fig.Text):
 				if self.useTextNodes:
 					self.writeTextNode(o)
@@ -360,12 +378,13 @@ class TikZConverter(object):
 			else:
 				self._warnOnce("fill style %s not yet supported!" % object.fillStyle)
 
-			if fillColor and fillColor == options.get("draw", False):
+			if fillColor is not None and fillColor == options.get("draw", False):
 				options["draw"] = None
-				options["color"] = fillColor
 				options["fill"] = None
+				options["color"] = fillColor
 			else:
 				options["fill"] = fillColor
+
 			if pattern:
 				options["pattern"] = pattern
 
@@ -381,6 +400,13 @@ class TikZConverter(object):
 			options["arrows"] = "%s-%s" % (
 				arrowCode(object.backwardArrow),
 				arrowCode(object.forwardArrow))
+
+		# simplifications:
+		if "draw" in options and not "fill" in options:
+			# \path[draw=black] -> \path[draw,color=black] {.. \draw[black] }
+			if options["draw"] is not None:
+				options["color"] = options["draw"]
+			options["draw"] = None # should become \draw
 
 		return options
 
@@ -448,21 +474,25 @@ class TikZConverter(object):
 			self.dimensionCM(ellipse.radius[0]),
 			self.dimensionCM(ellipse.radius[1])))
 
-	def writeCircle(self, circle):
+	def writeCircleNode(self, circle):
 		center = self.coordinate(circle.center)
 		node = self.getNode(circle)
-		if node is None:
-			self.outFile.write("%s %s circle (%s);\n" % (
-				self.pathIntro(circle), center,
-				self.dimensionCM(circle.radius[0])))
-		else:
-			options = self.tikzOptions(circle)
-			options.insert(0, ("circle", None))
-			if node: # named node?
-				node = " (%s)" % node
-			options["minimum size"] = self.dimensionCM(circle.radius[0]*2)
-			self.outFile.write("\\node%s at %s%s {};\n" % (
-				options, center, node))
+		if not node:
+			return
+		options = self.tikzOptions(circle)
+		options.insert(0, ("circle", None))
+		if node: # named node?
+			node = " (%s)" % node
+		options["minimum size"] = self.dimensionCM(circle.radius[0]*2)
+		self.outFile.write("\\node%s at %s%s {};\n" % (
+			options, center, node))
+		return node
+
+	def writeCircle(self, circle):
+		center = self.coordinate(circle.center)
+		self.outFile.write("%s %s circle (%s);\n" % (
+			self.pathIntro(circle), center,
+			self.dimensionCM(circle.radius[0])))
 
 	def writePolylineBase(self, poly):
 		path = " -- ".join(map(self.coordinate, poly.points))
@@ -472,6 +502,18 @@ class TikZConverter(object):
 			"%s %s;\n" % (self.pathIntro(poly), path))
 
 	def writeSplineBase(self, spline):
+		if not spline.closed() and len(spline.points) == 3:
+			self.outFile.write(
+				"%s %s .. controls %s .. %s;\n" % (
+				(self.pathIntro(spline), ) + tuple(
+				map(self.coordinate, spline.points))))
+			return
+		
+		if self.splinesAsPolylines:
+			return self.writePolylineBase(spline)
+		else:
+			self._warnOnce("X-splines cannot be 100% correctly converted!")
+
 		self.outFile.write(self.pathIntro(spline))
 
 		cycle = spline.closed() and " cycle" or ""
@@ -597,7 +639,7 @@ class TikZConverter(object):
 
 		self.outFile.write("\\path%s %s node%s {%s%s};\n" % (
 			options,
-			self.coordinate((text.x, text.y)), nodeOptions,
+			self.coordinate(text.pos), nodeOptions,
 			self._textSizeCommand(text), str))
 
 # --------------------------------------------------------------------
@@ -621,10 +663,19 @@ op.add_option("-f", "--nofonts", action = "store_true",
 op.add_option("--detectnodes", action = "store_true",
 			  dest = "detectNodes", default = False,
 			  help = "try to recognize graphs and connect named nodes (only circles ATM)")
+op.add_option("--scale", metavar = "FACTOR",
+			  dest = "scale", default = 1.0, type = "float",
+			  help = "scale whole figure by the given factor")
+op.add_option("--splines", metavar = "lines|plot",
+			  dest = "splines", default = "lines",
+			  help = "convert X-splines into polygonal lines (default) or smooth plots")
 # op.add_option("-t", "--textnodes", action = "store_true",
 # 			  dest = "textNodes", default = False,
 # 			  help = "put text into nodes (default: use \\pgftext, support rotation)")
 options, args = op.parse_args()
+
+if options.splines not in ("lines", "plot"):
+	op.error("argument of --splines must be either 'lines' or 'plot'")
 
 # FIXME: more natural arguments like
 # --pattern = off|on
@@ -637,7 +688,9 @@ assert len(args) == 1
 
 c = TikZConverter(fig.File(args[0]), sys.stdout)
 c.includeBaseDir = options.baseDir
+c.scale *= options.scale
 c.detectNodes = options.detectNodes
+c.connectTolerance = options.detectNodes and fig.unitCM / 10. # FIXME
 #c.useTextNodes = options.textNodes
 c.textAnchor = options.textAnchor
 if options.nofonts:
@@ -645,6 +698,6 @@ if options.nofonts:
 c.logicalThickness = not options.appearance
 c.optimalAppearance = options.appearance
 c.defineYAxis = options.defineYAxis
-c.splinesAsPolylines = True # FIXME
+c.splinesAsPolylines = options.splines == "lines"
 c.detectClosing = True # TODO?
 c.writePicture()
