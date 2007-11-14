@@ -640,6 +640,16 @@ class Object(object):
 		self.backwardArrow = None
 		self.comment = ""
 
+	def _joinWithProperties(self, figType, subType, *rest):
+		return _formatComment(self.comment) + _join(
+			figType, subType,
+			self.lineStyle, self.lineWidth,
+			self.penColor is None and colorDefault or self.penColor,
+			self.fillColor is None and colorDefault or self.fillColor,
+			self.depth, self.penStyle,
+			self.fillStyle, str(self.styleValue),
+			*rest)
+
 class Arrow(object):
 	"""Arrow objects store arrow parameters of open arcs, splines, or
 	lines.  Instances of this class are usually assigned to the
@@ -751,18 +761,14 @@ class ArcBase(Object):
 		hasForwardArrow = (self.forwardArrow != None and 1 or 0)
 		hasBackwardArrow = (self.backwardArrow != None and 1 or 0)
 		
-		result = _formatComment(self.comment) + \
-				 _join(_figArc, self.arcType(),
-					   self.lineStyle, self.lineWidth,
-					   self.penColor, self.fillColor,
-					   self.depth, self.penStyle,
-					   self.fillStyle, str(self.styleValue),
-					   self.capStyle, self.direction,
-					   hasForwardArrow, hasBackwardArrow,
-					   str(self.center[0]), str(self.center[1]),
-					   self.points[0][0], self.points[0][1],
-					   self.points[1][0], self.points[1][1],
-					   self.points[2][0], self.points[2][1]) + "\n"
+		result = self._joinWithProperties(
+			_figArc, self.arcType(),
+			self.capStyle, self.direction,
+			hasForwardArrow, hasBackwardArrow,
+			str(self.center[0]), str(self.center[1]),
+			self.points[0][0], self.points[0][1],
+			self.points[1][0], self.points[1][1],
+			self.points[2][0], self.points[2][1]) + "\n"
 
 		if hasForwardArrow:
 			result += "\t" + str(self.forwardArrow)
@@ -879,18 +885,14 @@ class EllipseBase(Object):
 			raise ValueError("Unknown ellipseType %d!" % ellipseType)
 
 	def __str__(self):
-		return _formatComment(self.comment) + \
-			   _join(_figEllipse, self.ellipseType(),
-					 self.lineStyle, self.lineWidth,
-					 self.penColor, self.fillColor,
-					 self.depth, self.penStyle,
-					 self.fillStyle, str(self.styleValue),
-					 1, # "1" is self.direction
-					 str(self.angle % (2*math.pi)),
-					 self.center[0], self.center[1],
-					 self.radius[0], self.radius[1],
-					 self.start[0], self.start[1],
-					 self.end[0], self.end[1]) + "\n"
+		return self._joinWithProperties(
+			_figEllipse, self.ellipseType(),
+			1, # "1" is self.direction
+			str(self.angle % (2*math.pi)),
+			self.center[0], self.center[1],
+			self.radius[0], self.radius[1],
+			self.start[0], self.start[1],
+			self.end[0], self.end[1]) + "\n"
 
 	def bounds(self):
 		result = Rect()
@@ -1082,15 +1084,11 @@ class PolylineBase(Object):
 		hasForwardArrow = (self.forwardArrow != None and 1 or 0)
 		hasBackwardArrow = (self.backwardArrow != None and 1 or 0)
 		
-		result = _formatComment(self.comment) + \
-				 _join(_figPolygon, self.polylineType(),
-					   self.lineStyle, self.lineWidth,
-					   self.penColor, self.fillColor,
-					   self.depth, self.penStyle,
-					   self.fillStyle, str(self.styleValue),
-					   self.joinStyle, self.capStyle, self.radius,
-					   hasForwardArrow, hasBackwardArrow,
-					   pointCount) + "\n"
+		result = self._joinWithProperties(
+			_figPolygon, self.polylineType(),
+			self.joinStyle, self.capStyle, self.radius,
+			hasForwardArrow, hasBackwardArrow,
+			pointCount) + "\n"
 
 		if hasForwardArrow:
 			result += "\t" + str(self.forwardArrow)
@@ -1368,14 +1366,11 @@ class SplineBase(Object):
 		hasForwardArrow = (self.forwardArrow != None and 1 or 0)
 		hasBackwardArrow = (self.backwardArrow != None and 1 or 0)
 
-		result = _formatComment(self.comment) + \
-				 _join(_figSpline, self.splineType(),
-					   self.lineStyle, self.lineWidth,
-					   self.penColor, self.fillColor,
-					   self.depth, self.penStyle,
-					   self.fillStyle, str(self.styleValue), self.capStyle,
-					   hasForwardArrow, hasBackwardArrow,
-					   pointCount) + "\n"
+		result = self._joinWithProperties(
+			_figSpline, self.splineType(),
+			self.capStyle,
+			hasForwardArrow, hasBackwardArrow,
+			pointCount) + "\n"
 
 		if hasForwardArrow:
 			result += "\t" + str(self.forwardArrow)
@@ -1515,16 +1510,15 @@ class Text(Object):
 	- length, height (dummy values, no guarantee about correctness)
 	"""
 
-	__slots__ = ("text", "x", "y", "alignment",
+	__slots__ = ("text", "pos", "alignment",
 				 "font", "fontSize", "fontFlags", "angle",
 				 "length", "height")
 
-	def __init__(self, x, y, text,
+	def __init__(self, pos, text,
 				 font = None, fontSize = 12, fontFlags = ffPostScript,
 				 alignment = alignLeft, angle = 0.0):
 		Object.__init__(self)
-		self.x = x
-		self.y = y
+		self.pos = pos
 		self.text = text
 		self.font = font
 		self.fontSize = fontSize
@@ -1545,14 +1539,14 @@ class Text(Object):
 	def bounds(self):
 		result = Rect()
 		if self.alignment == alignLeft:
-			result((self.x,                  self.y - self.height))
-			result((self.x + self.length, self.y))
+			result((self.pos[0],                 self.pos[1] - self.height))
+			result((self.pos[0] + self.length,   self.pos[1]))
 		elif self.alignment == alignCentered:
-			result((self.x - self.length/2, self.y - self.height))
-			result((self.x + self.length/2, self.y))
+			result((self.pos[0] - self.length/2, self.pos[1] - self.height))
+			result((self.pos[0] + self.length/2, self.pos[1]))
 		elif self.alignment == alignRight:
-			result((self.x,                  self.y - self.height))
-			result((self.x + self.length, self.y))
+			result((self.pos[0],                 self.pos[1] - self.height))
+			result((self.pos[0] + self.length,   self.pos[1]))
 		return result
 
 	def __str__(self):
@@ -1562,15 +1556,16 @@ class Text(Object):
 				   and fontDefault or fontLaTeXDefault
 		result = _formatComment(self.comment) + \
 				 _join(_figText, self.alignment,
-					   self.penColor, self.depth, self.penStyle,
+					   self.penColor is None and colorDefault or self.penColor,
+					   self.depth, self.penStyle,
 					   font, self.fontSize, str(self.angle), self.fontFlags,
-					   self.height, self.length, self.x, self.y,
+					   self.height, self.length, self.pos[0], self.pos[1],
 					   _escapeText(self.text+"\x01")) + "\n"
 
 		return result
 
 	def __repr__(self):
-		return "<fig.Text at %s, '%s'>" % ((self.x, self.y), self.text)
+		return "<fig.Text at %s, '%s'>" % ((self.pos[0], self.pos[1]), self.text)
 
 def _escapeText(text):
 	nonPrintable = re.compile("[\x00-\x08\x0e-\x1f\x80-\xff]")
@@ -1591,7 +1586,7 @@ def _unescapeText(text):
 	return result
 
 def _readText(params, text):
-	result = Text(int(params[10]), int(params[11]), _unescapeText(text),
+	result = Text(Vector(int(params[10]), int(params[11])), _unescapeText(text),
 				  alignment = int(params[0]))
 	result.penColor = int(params[1])
 	result.depth = int(params[2])
