@@ -1,4 +1,15 @@
-import fig, sys
+import fig, sys, re
+
+# FIXME: we now try to extract numbers from (e.g. formatted) tick
+# marks, but we should also cope with purely textual tick labels
+
+_re_number = re.compile(r"-?[0-9]+(?:\.[0-9]*)?(?:[eE]-?[0-9]+)?")
+
+def _float(s):
+	try:
+		return float(s)
+	except ValueError:
+		return float(_re_number.search(s).group(0))
 
 class GnuplotFig(fig.File):
 	"""Subclass of fig.File which separates objects into
@@ -63,13 +74,13 @@ class GnuplotFig(fig.File):
 
 		yTickLabels = self.layer(2)
 		yTicks = [ticks[2*i] for i in range(len(yTickLabels))]
-		self.yRange = ((yTicks[0].points[0][1], float(yTickLabels[0].text)),
-					   (yTicks[-1].points[0][1], float(yTickLabels[-1].text)))
+		self.yRange = ((yTicks[0].points[0][1], _float(yTickLabels[0].text)),
+					   (yTicks[-1].points[0][1], _float(yTickLabels[-1].text)))
 
 		xTickLabels = self.layer(1)
 		xTicks = [ticks[2*(i+len(yTicks))] for i in range(len(xTickLabels))]
-		self.xRange = ((xTicks[0].points[0][0], float(xTickLabels[0].text)),
-					   (xTicks[-1].points[0][0], float(xTickLabels[-1].text)))
+		self.xRange = ((xTicks[0].points[0][0], _float(xTickLabels[0].text)),
+					   (xTicks[-1].points[0][0], _float(xTickLabels[-1].text)))
 
 		self.comment = repr((self.xRange, self.yRange))
 
