@@ -1740,7 +1740,7 @@ class Container(list):
 
 class ObjectProxy(Container):
 	"""An ObjectProxy is a special `Container` that is used for search
-	results (see `Container.findObjects`) which offers two additional
+	results (see `Container.findObjects`) which offers additional
 	features:
 
 	remove():
@@ -1754,7 +1754,15 @@ class ObjectProxy(Container):
 
 	  Setting an attribute is promoted to all contained objects which
 	  have that attribute.  (E.g. setting fontSize will affect only
-	  Text objects.)"""
+	  Text objects.)
+
+	querying attributes:
+	  ``col = file.layer(50).penColor``
+
+	  Objects that do not have the attribute are gracefully skipped;
+	  `None` is returned if the objects do not all have the same value
+	  for the requested attribute.  (An `AttributeError` is only
+	  raised if none of the objects has the requested attribute.)"""
 	
 	__slots__ = ("parent", )
 
@@ -1771,6 +1779,17 @@ class ObjectProxy(Container):
 				setattr(ob, key, value)
 
 	def __getattr__(self, key):
+		"""Forwards attribute lookup to the contained objects.
+
+		If the attribute has the same value for all objects, it is
+		returned, otherwise (the attribute has different values among
+		them), `None` is returned.
+
+		Objects that do not have the named attribute are simply
+		ignored (i.e. proxy.font will gracefully skip non-`Text`
+		objects).  An `AttributeError` is only raised of none of the
+		objects has the requested attribute."""
+		
 		found = False
 		for ob in self:
 			if hasattr(ob, key):
@@ -1785,9 +1804,10 @@ class ObjectProxy(Container):
 		return result
 
 	def __getslice__(self, *args):
-		result = ObjectProxy(Container.__getslice__(self, *args),
-							 self.parent)
-		return result
+		"""Support slicing, i.e. returns an ObjectProxy with the same
+		parent."""
+		return ObjectProxy(Container.__getslice__(self, *args),
+						   self.parent)
 
 	def remove(self, *args):
 		"""When no arguments are given, remove all objects from parent
@@ -1803,12 +1823,18 @@ class ObjectProxy(Container):
 			Container.remove(self, *args)
 
 	def container(self):
+		"""Return first non-ObjectProxy object in the parent chain.
+		This will be the object `findObjects` has originally be called
+		on."""
 		result = self.parent
-		while result and isinstance(result, ObjectProxy):
+		while isinstance(result, ObjectProxy):
 			result = result.parent
 		return result
 
 	def __add__(self, other):
+		"""Returns the union of two search results.  (If the two
+		source ObjectProxies being added together have different
+		parents, the result will have a parent of None.)"""
 		parent = self.container()
 		if parent is not other.container():
 			parent = None
