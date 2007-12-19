@@ -258,7 +258,6 @@ class TikZConverter(object):
 	def writePicture(self):
 		options = Options()
 		if self.optimalAppearance:
-			options["inner sep"] = "0pt"
 			options.append("even odd rule")
 
 		if self.defineYAxis:
@@ -535,7 +534,12 @@ class TikZConverter(object):
 			self.coordinate(arcBox.points[2])))
 
 	def writePictureBBox(self, pictureBBox):
-		self.outFile.write("\\node[anchor=north west] at %s {\\includegraphics[width=%s,height=%s]{%s%s}};\n" % (
+		nodeOptions = Options()
+		nodeOptions["anchor"] = "north west"
+		nodeOptions["inner sep"] = "0pt"
+		
+		self.outFile.write("\\node%s at %s {\\includegraphics[width=%s,height=%s]{%s%s}};\n" % (
+			nodeOptions,
 			self.coordinate(pictureBBox.bounds().upperLeft()),
 			self.dimensionCM(pictureBBox.bounds().width()),
 			self.dimensionCM(pictureBBox.bounds().height()),
