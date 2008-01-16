@@ -602,10 +602,10 @@ class TikZConverter(object):
 		elif text.alignment == fig.alignRight:
 			options.append("right")
 
-		if text.x:
-			options.append("x=%s" % self.dimensionCM(text.x))
-		if text.y:
-			options.append("y=%s" % self.dimensionCM(-text.y))
+		if text.pos[0]:
+			options.append("x=%s" % self.dimensionCM(text.pos[0]))
+		if text.pos[1]:
+			options.append("y=%s" % self.dimensionCM(-text.pos[1]))
 		if text.angle:
 			options.append("rotate=%s" % round(math.degrees(text.angle)))
 
