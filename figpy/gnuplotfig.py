@@ -100,10 +100,36 @@ class GnuplotFig(fig.File):
 
 	def fixRedData(self):
 		"""Somehow, Gnuplot does not assign the first linestyle the
-		proper (red) color, but black.  Thus function corrects this
+		proper (red) color, but black.  This function corrects this
 		(by assigning red to all black elements of depth 10)."""
-		self.findObjects(depth = 10, penColor = fig.colorBlack) \
-							   .penColor = fig.colorRed
+
+		data = self.layer(10)
+		assert len(data) > 1
+		
+		plots = []
+		currentColor = None
+		for element in data:
+			if element.penColor != currentColor:
+				if currentColor is not None:
+					if element.penColor < currentColor: # frame
+						break
+					plots.append(current)
+				current = fig.ObjectProxy()
+				currentColor = element.penColor
+			current.append(element)
+
+		plots.append(current)
+
+		epsColors = [
+			fig.colorRed,
+			fig.colorGreen,
+			fig.colorBlue,
+			fig.colorMagenta,
+			]
+
+		for i, plot in enumerate(plots):
+			plot.penColor = epsColors[i]
+			plot.depth = 50 - i
 
 	def addVerticalLine(self, xPos, **attr):
 		figPos = self.plot2fig((xPos, 0))[0]
@@ -114,3 +140,9 @@ class GnuplotFig(fig.File):
 		for a in attr:
 			setattr(line, a, attr[a])
 		return line
+
+if __name__ == "__main__":
+	for fn in sys.argv[1:]:
+		f = GnuplotFig(fn)
+		f.fixRedData()
+		f.save()
