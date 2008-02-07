@@ -2253,10 +2253,11 @@ class File(Container):
 			os.chdir(path)
 
 		try:
-			cin, cout = os.popen4("fig2dev -L %s '%s' '%s'" % (
-				lang, basename, output))
+			outFile = file(output, "w")
+			cin, cout = os.popen4("fig2dev -L %s '%s'" % (lang, basename))
 			cin.close()
-			sys.stdout.write(cout.read())
+			outFile.write(cout.read())
+			outFile.close()
 			cout.close()
 		finally:
 			if oldcwd:
