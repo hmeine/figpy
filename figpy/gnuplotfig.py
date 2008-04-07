@@ -98,13 +98,16 @@ class GnuplotFig(fig.File):
 			xBegin[1] + (xEnd[1]-xBegin[1])*(x - xBegin[0])/(xEnd[0]-xBegin[0]),
 			yBegin[1] + (yEnd[1]-yBegin[1])*(y - yBegin[0])/(yEnd[0]-yBegin[0]))
 
+	def needsFixing(self):
+		data = self.layer(10)
+		return len(data) > 1 and data[0].penColor == 0
+
 	def fixRedData(self):
 		"""Somehow, Gnuplot does not assign the first linestyle the
 		proper (red) color, but black.  This function corrects this
 		(by assigning red to all black elements of depth 10)."""
 
 		data = self.layer(10)
-		assert len(data) > 1
 		
 		plots = []
 		currentColor = None
@@ -144,5 +147,6 @@ class GnuplotFig(fig.File):
 if __name__ == "__main__":
 	for fn in sys.argv[1:]:
 		f = GnuplotFig(fn)
-		f.fixRedData()
-		f.save()
+		if f.needsFixing():
+			f.fixRedData()
+			f.save()
