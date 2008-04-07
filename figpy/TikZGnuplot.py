@@ -7,10 +7,23 @@ class Data(object):
 		self.data = data
 
 	def iter2D(self):
+		#print self.data
 		if numpy.isscalar(self.data[0]):
 			it = enumerate(self.data)
 		else:
 			it = iter(self.data)
+		return it
+
+	def gnuplotPlot(self):
+		rest = dict(self.props)
+		options = ""
+		if "with" in rest:
+			options += " with %s" % rest["with"]
+			del rest["with"]
+		if rest:
+			options += " " + " ".join(
+				"%s %r" % kv for kv in plotItem.props.items())
+		return '"%s"%s' % (datFileName, options)
 
 epsColors = ("black",
 			 "red", "green", "blue", "magenta", "cyan", "yellow",
@@ -30,6 +43,7 @@ class Gnuplot(object):
 		self.ylabel = None
 
 	def __call__(self, command):
+		print command
 		command = command.strip()
 		if command.startswith("set terminal"):
 			pass
@@ -43,13 +57,17 @@ class Gnuplot(object):
 			print "WARNING: not parsed: '%s'." % command
 
 	def set_range(self, rangeName, (min, max)):
+		print "set %s [%s:%s]" % (rangeName, min, max)
 		self.ranges[rangeName] = (min, max)
 
 	@staticmethod
 	def saveDataFile(plotItem, filename):
 		f = file(filename, "w")
 		for field in plotItem.iter2D():
-			f.write("%s\n" % " ".join(map(lambda f: "%.5f" % f, field)))
+			if numpy.isnan(field[1]):
+				f.write("\n")
+			else:
+				f.write("%s\n" % " ".join(map(lambda f: "%.5f" % f, field)))
 		f.close()
 
 	def plot(self, *plotItems):
