@@ -528,6 +528,14 @@ class Rect(object):
 
 	def __mul__(self, factor):
 		return Rect(*map(lambda x: x*factor, self))
+
+	def addBorder(self, w, h = None):
+		if h is None:
+			h = w
+		self.x1 -= w
+		self.y1 -= h
+		self.x2 += w
+		self.y2 += h
 	
 	def __repr__(self):
 		return "fig.Rect(%d,%d,%d,%d)" % (self.x1, self.y1, self.x2, self.y2)
