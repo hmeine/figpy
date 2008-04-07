@@ -9,6 +9,7 @@ from tikz import *
 #   * for detecting points on a circle
 # - recognize node labels (i.e. text near a circular node)
 # - only convert small circles into nodes
+# - convert regular polygons into shapes.geometry code
 
 _latexChars = {
 	'^':  r"{\textasciicircum}",
@@ -44,18 +45,6 @@ def escapeLaTeX(s):
 		else:
 			result += ch
 	return result
-
-def latexFloat(num, fractDigits = 5):
-	result = ("%%20.%df" % fractDigits) % num
-	b = 0
-	while result[b] == " ":
-		b += 1
-	e = len(result)
-	while result[e-1] == "0":
-		e -= 1
-	if result[e-1] == ".":
-		e -= 1
-	return result[b:e]
 
 # --------------------------------------------------------------------
 

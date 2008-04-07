@@ -70,3 +70,19 @@ class Options(list):
 		else:
 			assert len(option) == 2
 		list.insert(self, index, option)
+
+def latexFloat(num, fractDigits = 5):
+	result = ("%%20.%df" % fractDigits) % num
+	b = 0
+	while result[b] == " ":
+		b += 1
+	e = len(result)
+	while result[e-1] == "0":
+		e -= 1
+	if result[e-1] == ".":
+		e -= 1
+	return result[b:e]
+
+def coordinate(xy, fractDigits = 5):
+	return "(%s,%s)" % (latexFloat(xy[0], fractDigits),
+						latexFloat(xy[1], fractDigits))
