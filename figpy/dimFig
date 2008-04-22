@@ -3,19 +3,40 @@
 __author__ = "Hans Meine <hans_meine@gmx.net>"
 
 import fig, sys, re, os.path
+from optparse import OptionParser
 
-filename = sys.argv[1]
-backgroundColor = fig.CustomColor(None, sys.argv[2])
-alpha = float(sys.argv[3])/100
+op = OptionParser(
+	usage = "%prog <infile> <bgcolor> <opacity>",
+	description=
+	"""Creates a dimmed / grayed-out version of an XFig file (e.g. for use with PGF/Beamer).
+
+The background color needs to be specified in the usual hex notation (e.g. #ffffff for white), and opacity is the opacity in percentage as specified in the colormixin-environment (e.g. 15 in the beamer themes I used).
+
+The input filename may be '-' for stdin, and if no output filename is given, the output will be sent to stdout.""")
+op.add_option("-o", "--output", action="store", dest="filename",
+			  help="Output filename (default: output to stdout)")
+options, args = op.parse_args()
+
+if len(args) != 3:
+	sys.stderr.write("ERROR: Wrong number or arguments.\n\n")
+	op.print_help(sys.stderr)
+	sys.exit(1)
+
+filename = args[0]
+if filename == "-":
+	filename = sys.stdin # constructor parameter for fig.File
+
+backgroundColor = fig.CustomColor(None, args[1])
+alpha = float(args[2])/100
 
 def blend(rgb):
 	def blendChannel(fg, bg):
 		return int(round(alpha*fg + (1-alpha)*bg))
 	return map(blendChannel, rgb, backgroundColor)
 
-infig = fig.File(filename)
+figFile = fig.File(filename)
 
-for c in infig.colors:
+for c in figFile.colors:
 	c.setRGB(*blend(c))
 
 standardMapping = []
@@ -28,12 +49,15 @@ def mapColor(c):
 		return c
 	result = standardMapping[c]
 	if result == None:
-		result = infig.getColor(blend(fig.standardColors[c]))
+		result = figFile.getColor(blend(fig.standardColors[c]))
 		standardMapping[c] = result
 	return result
 
-for o in infig.allObjects():
+for o in figFile.allObjects():
 	o.penColor = mapColor(o.penColor)
 	o.fillColor = mapColor(o.fillColor)
 
-print str(infig),
+if options.filename:
+	figFile.save(options.filename)
+else:
+	sys.stdout.write(str(figFile))
