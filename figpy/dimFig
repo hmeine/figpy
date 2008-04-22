@@ -10,7 +10,7 @@ op = OptionParser(
 	description=
 	"""Creates a dimmed / grayed-out version of an XFig file (e.g. for use with PGF/Beamer).
 
-The background color needs to be specified in the usual hex notation (e.g. #ffffff for white), and opacity is the opacity in percentage as specified in the colormixin-environment (e.g. 15 in the beamer themes I used).
+The background color needs to be specified in the usual hex notation (e.g. #ffffff for white), and opacity is the opacity in percentage as specified in the colormixin-environment (e.g. 15 in the beamer themes I used).  In LaTeX, you can use \colorcurrentmixin to get the values matching the effect applied to the surrounding text.
 
 The input filename may be '-' for stdin, and if no output filename is given, the output will be sent to stdout.""")
 op.add_option("-o", "--output", action="store", dest="filename",
