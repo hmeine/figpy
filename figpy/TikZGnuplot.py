@@ -22,8 +22,8 @@ class Data(object):
 			del rest["with"]
 		if rest:
 			options += " " + " ".join(
-				"%s %r" % kv for kv in plotItem.props.items())
-		return '"%s"%s' % (datFileName, options)
+				"%s %r" % kv for kv in rest.items())
+		return '"%s"%s' % (datFileName, options) # FIXME: datFileName?
 
 epsColors = ("black",
 			 "red", "green", "blue", "magenta", "cyan", "yellow",
