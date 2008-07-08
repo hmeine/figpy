@@ -10,7 +10,7 @@ __author__ = "Hans Meine <hans_meine@gmx.net>"
 __version__ = "$Id$" \
 			  .split(" ")[2:-2]
 
-import sys, re, math, types, os, operator, copy
+import sys, re, math, os, operator, copy
 
 #{ object codes
 _figCustomColor   = 0
@@ -1799,6 +1799,7 @@ class ObjectProxy(Container):
 		objects has the requested attribute."""
 		
 		found = False
+		result = None # (prevent false positive in pyflakes)
 		for ob in self:
 			if hasattr(ob, key):
 				if found:
