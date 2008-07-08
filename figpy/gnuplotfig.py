@@ -110,7 +110,7 @@ class GnuplotFig(fig.File):
 		data = self.layer(10)
 		
 		plots = []
-		currentColor = None
+		currentColor = current = None
 		for element in data:
 			if element.penColor != currentColor:
 				if currentColor is not None:
