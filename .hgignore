@@ -1,0 +1,4 @@
+~$
+\.fig.bak$
+\.py[co]$
+^figpy/tikz-test
