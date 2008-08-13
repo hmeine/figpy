@@ -605,6 +605,8 @@ op.add_option("--splines", metavar = "lines|plot",
 # 			  help = "put text into nodes (default: use \\pgftext, support rotation)")
 options, args = op.parse_args()
 
+# similar thing could have been achieved by adding choices = ("lines",
+# "plot") to the option definition above:
 if options.splines not in ("lines", "plot"):
 	op.error("argument of --splines must be either 'lines' or 'plot'")
 
@@ -615,7 +617,8 @@ if options.splines not in ("lines", "plot"):
 
 # --------------------------------------------------------------------
 
-assert len(args) == 1
+if len(args) != 1:
+	op.error("exactly one non-option argument expected")
 
 c = TikZConverter(fig.File(args[0]), sys.stdout)
 c.includeBaseDir = options.baseDir
