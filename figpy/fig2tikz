@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-import fig, sys, math, optparse
+import fig, sys, math, optparse, os
 from tikz import *
 
 # FIXME: arrow colors (regression)
@@ -471,7 +471,7 @@ class TikZConverter(object):
 			self.dimensionCM(pictureBBox.bounds().width()),
 			self.dimensionCM(pictureBBox.bounds().height()),
 			self.includeBaseDir,
-			pictureBBox.filename))
+			os.path.splitext(pictureBBox.filename)[0]))
 
 	def _textSizeCommand(self, text):
 		result = ""
