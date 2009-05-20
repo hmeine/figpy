@@ -1735,6 +1735,10 @@ class Container(list):
 						pass
 			raise ValueError("remove(): Given object not found in Container.")
 
+	def container(self):
+		"""Return self, see `ObjectProxy.container()`."""
+		return self
+
 	def bounds(self):
 		"""Return the union of all bounding boxes of the contained
 		objects.  This value is not cached (because it cannot be
