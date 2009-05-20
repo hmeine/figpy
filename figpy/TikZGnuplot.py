@@ -129,10 +129,20 @@ class Gnuplot(object):
 				f.write("\draw%s plot%s file{%s};\n" % (
 					pathOptions, plotOptions, datFileName))
 			elif self.mode == "pgfplots":
+				datFileName = "%s_%d.dat" % (self.basename, i+1)
+				self.saveDataFile(plotItem, datFileName)
+				f.write(("\\addplot%s plot file {%s};\n" % (pathOptions, datFileName)))
+				if "title" in plotItem.props:
+					f.write(
+						"\\addlegendentry{%s}\n" % plotItem.props["title"])
+				f.write("\n")
+			elif self.mode == "pgfplots_inplace": # OLD
 				pathOptions.extend(plotOptions)
 				coordinates = " ".join([
 					"(%.5f,%.5f)" % p for p in plotItem.data])
 				plots = coordinates.split("(nan,nan)")
+				# FIXME: a linebreak is inserted in places of
+				# (nan,nan), but that does not begin a new plot!
 				f.write(("\\addplot%s plot coordinates {\n  %s\n};\n" % (
 					pathOptions, "\n  ".join(plots))))
 				if "title" in plotItem.props:
