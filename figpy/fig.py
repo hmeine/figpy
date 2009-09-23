@@ -2267,11 +2267,17 @@ class File(Container):
 
 		try:
 			outFile = file(output, "w")
-			cin, cout = os.popen4("fig2dev -L %s '%s'" % (lang, basename))
-			cin.close()
-			outFile.write(cout.read())
+			try:
+				import subprocess
+			except ImportError:
+				cin, cout = os.popen4("fig2dev -L %s '%s'" % (lang, basename))
+				cin.close()
+				outFile.write(cout.read())
+				cout.close()
+			else:
+				subprocess.call(["fig2dev", "-L", lang, basename],
+								stdout = outFile)
 			outFile.close()
-			cout.close()
 		finally:
 			if oldcwd:
 				os.chdir(oldcwd)
