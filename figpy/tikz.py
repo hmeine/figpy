@@ -86,3 +86,9 @@ def latexFloat(num, fractDigits = 5):
 def coordinate(xy, fractDigits = 5):
 	return "(%s,%s)" % (latexFloat(xy[0], fractDigits),
 						latexFloat(xy[1], fractDigits))
+
+def path(points, fractDigits = 5, separator = " -- "):
+	pp = [coordinate(p, fractDigits) for p in points]
+	if points[-1] == points[0]:
+		pp[-1] = "cycle"
+	return separator.join(pp)
