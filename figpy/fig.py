@@ -120,6 +120,28 @@ arClosedIndented = 2
 "closed with 'indented' butt"
 arClosedPointed = 3
 "closed with 'pointed' butt"
+arClosedDiamond = 4
+"closed parallelogram"
+arClosedCircle = 5
+"closed circle"
+arHalfCircle = 6
+"open half-circle"
+arClosedRectangle = 7
+"closed rectangle"
+arClosedReverse = 8
+"closed reverse triangle"
+arHalfFilled = 9
+"half-filled triangle (side determined by arrow style)"
+arRightHalf = 10
+"right half of closed triangle"
+arRightHalfIndented = 11
+"right half of triangle with 'indented' butt"
+arRightHalfIndented = 12
+"right half of triangle with 'pointed' butt"
+arReversedStick = 13
+"open reversed triangle (alternate style: perpendicular line)"
+arOpenRectangle = 14
+"open rectangle (direction determined by arrow style)"
 
 #{ arrow style constants (cf. `Arrow` class)
 asHollow = 0
