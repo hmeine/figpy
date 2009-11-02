@@ -53,6 +53,17 @@ _arrowMapping = {
 	fig.arClosed : 'triangle 45',
 	fig.arClosedIndented : 'stealth',
 	fig.arClosedPointed : 'diamond',
+	fig.arClosedDiamond : 'diamond',
+	fig.arClosedCircle : '*',
+	fig.arHalfCircle : (')', '('),
+	fig.arClosedRectangle : '',
+	fig.arClosedReverse : 'triangle 45 reversed',
+	fig.arHalfFilled : '',
+	fig.arRightHalf : 'right to',
+	fig.arRightHalfIndented : 'right to',
+	fig.arRightHalfIndented : 'right to',
+	fig.arReversedStick : '',
+	fig.arOpenRectangle : (']', '['),
 	}
 
 _capStyleMapping = {
@@ -103,13 +114,17 @@ _fillStyleMapping = {
 # 	fig.fillStyleVerticalTireTreads : "",
 	}
 
-def arrowCode(arrow):
+def arrowCode(arrow, direction):
 	if not arrow:
 		return ""
-	result = _arrowMapping[arrow.type]
-	if arrow.style == fig.asHollow and result in (
-		"triangle 45", "diamond"):
-		result = "open " + result
+	result = _arrowMapping.get(arrow.type, '')
+	if isinstance(result, tuple):
+		result = result[direction]
+	if arrow.style == fig.asHollow:
+		if result in ("triangle 45", "diamond", "triangle 45 reversed"):
+			result = "open " + result
+		elif result == "*":
+			result = "o"
 	return result
 
 class TikZConverter(object):
@@ -324,8 +339,8 @@ class TikZConverter(object):
 
 		if object.forwardArrow or object.backwardArrow:
 			options["arrows"] = "%s-%s" % (
-				arrowCode(object.backwardArrow),
-				arrowCode(object.forwardArrow))
+				self._arrowCode(object.backwardArrow, 0),
+				self._arrowCode(object.forwardArrow, 1))
 
 		# simplifications:
 		if "draw" in options and not "fill" in options:
@@ -335,6 +350,13 @@ class TikZConverter(object):
 			options["draw"] = None # should become \draw
 
 		return options
+
+	def _arrowCode(self, arrow, direction):
+		result = arrowCode(arrow, direction)
+		if arrow and not result:
+			self._warnOnce("arrow type %s (style %s) not yet supported!" % (
+				arrow.type, arrow.style))
+		return result
 
 	def pathIntro(self, object, options = None):
 		if not options:
