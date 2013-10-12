@@ -6,9 +6,7 @@ You can read fig files into a `File` object 'f' with::
   f = fig.File(filename) # or pass a file-like object"""
 
 __author__ = "Hans Meine <hans_meine@gmx.net>"
-
-__version__ = "$Id$" \
-			  .split(" ")[2:-2]
+__version__ = "0.9"
 
 import sys, re, math, os, operator, copy
 
