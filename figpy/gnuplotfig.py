@@ -44,7 +44,7 @@ class GnuplotFig(fig.File):
 
 		l = self.layer(0)
 		i = 0
-		while l[i].alignment == fig.alignRight:
+		while l[i].alignment == fig.Alignment.Right:
 			l[i].depth = 2
 			i += 1
 		while l[i].text.startswith(" "):
@@ -124,10 +124,10 @@ class GnuplotFig(fig.File):
 		plots.append(current)
 
 		epsColors = [
-			fig.colorRed,
-			fig.colorGreen,
-			fig.colorBlue,
-			fig.colorMagenta,
+			fig.Color.Red,
+			fig.Color.Green,
+			fig.Color.Blue,
+			fig.Color.Magenta,
 			]
 
 		for i, plot in enumerate(plots):

@@ -25,9 +25,9 @@ for i in range(len(fileB.colors)):
 	colorMap[int(fileB.colors[i])] = fileA.getColor(fileB.colors[i].hexCode)
 
 for o in fileB.allObjects():
-	if o.penColor >= fig.colorCustom0:
+	if o.penColor >= fig.Color.Custom0:
 		o.penColor = colorMap[int(o.penColor)]
-	if o.fillColor >= fig.colorCustom0:
+	if o.fillColor >= fig.Color.Custom0:
 		o.fillColor = colorMap[int(o.fillColor)]
 
 for o in fileB.allObjects():

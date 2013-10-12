@@ -49,69 +49,69 @@ def escapeLaTeX(s):
 # --------------------------------------------------------------------
 
 _arrowMapping = {
-	fig.arStick  : 'to',
-	fig.arClosed : 'triangle 45',
-	fig.arClosedIndented : 'stealth',
-	fig.arClosedPointed : 'diamond',
-	fig.arClosedDiamond : 'diamond',
-	fig.arClosedCircle : '*',
-	fig.arHalfCircle : (')', '('),
-	fig.arClosedRectangle : '',
-	fig.arClosedReverse : 'triangle 45 reversed',
-	fig.arHalfFilled : '',
-	fig.arRightHalf : 'right to',
-	fig.arRightHalfIndented : 'right to',
-	fig.arRightHalfIndented : 'right to',
-	fig.arReversedStick : '',
-	fig.arOpenRectangle : (']', '['),
+	fig.ArrowType.Stick  : 'to',
+	fig.ArrowType.Closed : 'triangle 45',
+	fig.ArrowType.ClosedIndented : 'stealth',
+	fig.ArrowType.ClosedPointed : 'diamond',
+	fig.ArrowType.ClosedDiamond : 'diamond',
+	fig.ArrowType.ClosedCircle : '*',
+	fig.ArrowType.HalfCircle : (')', '('),
+	fig.ArrowType.ClosedRectangle : '',
+	fig.ArrowType.ClosedReverse : 'triangle 45 reversed',
+	fig.ArrowType.HalfFilled : '',
+	fig.ArrowType.RightHalf : 'right to',
+	fig.ArrowType.RightHalfIndented : 'right to',
+	fig.ArrowType.RightHalfIndented : 'right to',
+	fig.ArrowType.ReversedStick : '',
+	fig.ArrowType.OpenRectangle : (']', '['),
 	}
 
 _capStyleMapping = {
-	fig.capStyleButt : 'butt',
-	fig.capStyleRound : 'round',
-	fig.capStyleProjecting : 'rect',
+	fig.CapStyle.Butt : 'butt',
+	fig.CapStyle.Round : 'round',
+	fig.CapStyle.Projecting : 'rect',
 	}
 
 _joinStyleMapping = {
-	fig.joinStyleMiter : 'miter',
-	fig.joinStyleBevel : 'bevel',
-	fig.joinStyleRound : 'round',
+	fig.JoinStyle.Miter : 'miter',
+	fig.JoinStyle.Bevel : 'bevel',
+	fig.JoinStyle.Round : 'round',
 	}
 
 _colorMapping = {
-	fig.colorBlack : 'black',
-	fig.colorBlue : 'blue',
-	fig.colorGreen : 'green',
-	fig.colorCyan : 'cyan',
-	fig.colorRed : 'red',
-	fig.colorMagenta : 'magenta',
-	fig.colorYellow : 'yellow',
-	fig.colorWhite : 'white',
+	fig.Color.Black : 'black',
+	fig.Color.Blue : 'blue',
+	fig.Color.Green : 'green',
+	fig.Color.Cyan : 'cyan',
+	fig.Color.Red : 'red',
+	fig.Color.Magenta : 'magenta',
+	fig.Color.Yellow : 'yellow',
+	fig.Color.White : 'white',
 	}
 
 _fillStyleMapping = {
-# 	fig.fillStyleLeft30 : "",
-# 	fig.fillStyleRight30 : "",
-# 	fig.fillStyleCrossed30 : "",
-	fig.fillStyleLeft45 : "north west lines",
-	fig.fillStyleRight45 : "north east lines",
- 	fig.fillStyleCrossed45 : "crosshatch",
-	fig.fillStyleHorizontalBricks : "bricks",
-# 	fig.fillStyleVerticalBricks : "",
-	fig.fillStyleHorizontalLines : "horizontal lines",
-	fig.fillStyleVerticalLines : "vertical lines",
-	fig.fillStyleCrosshatch : "grid",
-# 	fig.fillStyleHorizontalShingles1 : "",
-# 	fig.fillStyleHorizontalShingles2 : "",
-# 	fig.fillStyleVerticalShingles1 : "",
-# 	fig.fillStyleVerticalShingles2 : "",
-# 	fig.fillStyleFishScales : "",
-# 	fig.fillStyleSmallFishScales : "",
-# 	fig.fillStyleCircles : "",
-# 	fig.fillStyleHexagons : "",
-# 	fig.fillStyleOctagons : "",
-# 	fig.fillStyleHorizontalTireTreads : "",
-# 	fig.fillStyleVerticalTireTreads : "",
+# 	fig.FillStyle.Left30 : "",
+# 	fig.FillStyle.Right30 : "",
+# 	fig.FillStyle.Crossed30 : "",
+	fig.FillStyle.Left45 : "north west lines",
+	fig.FillStyle.Right45 : "north east lines",
+ 	fig.FillStyle.Crossed45 : "crosshatch",
+	fig.FillStyle.HorizontalBricks : "bricks",
+# 	fig.FillStyle.VerticalBricks : "",
+	fig.FillStyle.HorizontalLines : "horizontal lines",
+	fig.FillStyle.VerticalLines : "vertical lines",
+	fig.FillStyle.Crosshatch : "grid",
+# 	fig.FillStyle.HorizontalShingles1 : "",
+# 	fig.FillStyle.HorizontalShingles2 : "",
+# 	fig.FillStyle.VerticalShingles1 : "",
+# 	fig.FillStyle.VerticalShingles2 : "",
+# 	fig.FillStyle.FishScales : "",
+# 	fig.FillStyle.SmallFishScales : "",
+# 	fig.FillStyle.Circles : "",
+# 	fig.FillStyle.Hexagons : "",
+# 	fig.FillStyle.Octagons : "",
+# 	fig.FillStyle.HorizontalTireTreads : "",
+# 	fig.FillStyle.VerticalTireTreads : "",
 	}
 
 def arrowCode(arrow, direction):
@@ -120,7 +120,7 @@ def arrowCode(arrow, direction):
 	result = _arrowMapping.get(arrow.type, '')
 	if isinstance(result, tuple):
 		result = result[direction]
-	if arrow.style == fig.asHollow:
+	if arrow.style == fig.ArrowStyle.Hollow:
 		if result in ("triangle 45", "diamond", "triangle 45 reversed"):
 			result = "open " + result
 		elif result == "*":
@@ -278,7 +278,7 @@ class TikZConverter(object):
 		options = Options()
 
 		if object.lineWidth:
-			if object.penColor != fig.colorDefault:
+			if object.penColor != fig.Color.Default:
 				penColor = self.defineColor("penColor", object.penColor)
 				options["draw"] = penColor
 			else:
@@ -289,31 +289,31 @@ class TikZConverter(object):
 					options.append(("semithick", "thick", "very thick", "ultra thick")[object.lineWidth-2])
 				else:
 					options["line width"] = self.figPt(object.lineWidth-1)
-			if object.capStyle != fig.capStyleButt:
+			if object.capStyle != fig.CapStyle.Butt:
 				options["cap"] = _capStyleMapping[object.capStyle]
-			if object.joinStyle != fig.joinStyleMiter:
+			if object.joinStyle != fig.JoinStyle.Miter:
 				options["join"] = _joinStyleMapping[object.joinStyle]
 
-		if object.fillStyle != fig.fillStyleNone:
+		if object.fillStyle != fig.FillStyle.None_:
 			pattern = ""
 			fillColor = None
-			if object.fillColor != fig.colorDefault:
+			if object.fillColor != fig.Color.Default:
 				if object.fillColor == object.penColor and object.lineWidth:
 					fillColor = penColor
 				else:
 					fillColor = self.defineColor("fillColor", object.fillColor)
 
-			if object.fillStyle == fig.fillStyleSolid:
+			if object.fillStyle == fig.FillStyle.Solid:
 				pass
-			elif object.fillStyle < fig.fillStyleSolid:
+			elif object.fillStyle < fig.FillStyle.Solid:
 				if not fillColor or fillColor == "black":
 					fillColor = "black!%s" % (object.fillStyle*5)
 				else:
 					fillColor += "!%d!black" % (object.fillStyle*5)
-			elif object.fillStyle <= fig.fillStyleWhite:
+			elif object.fillStyle <= fig.FillStyle.White:
 				if fillColor in ("black", "white", None):
 					self._warnOnce("fill style %s with %s fill color should not happen!" % (object.fillStyle, fillColor or "default"))
-				fillColor += "!%d" % (100 - (object.fillStyle - fig.fillStyleSolid)*5)
+				fillColor += "!%d" % (100 - (object.fillStyle - fig.FillStyle.Solid)*5)
 			elif object.fillStyle in _fillStyleMapping:
 				pattern = _fillStyleMapping[object.fillStyle]
 			else:
@@ -329,11 +329,11 @@ class TikZConverter(object):
 			if pattern:
 				options["pattern"] = pattern
 
-		if object.lineStyle == fig.lineStyleDotted:
+		if object.lineStyle == fig.LineStyle.Dotted:
 			options["style"] = "dotted"
-		elif object.lineStyle == fig.lineStyleDashed:
+		elif object.lineStyle == fig.LineStyle.Dashed:
 			options["style"] = "dashed"
-		elif object.lineStyle not in (fig.lineStyleDefault, fig.lineStyleSolid):
+		elif object.lineStyle not in (fig.LineStyle.Default, fig.LineStyle.Solid):
 			# TODO style=solid in TikZ?
 			self._warnOnce("line style %s not yet supported!" % object.lineStyle)
 
@@ -499,7 +499,7 @@ class TikZConverter(object):
 		result = ""
 
 		texSize = text.fontSize
-		if not text.fontFlags & fig.ffRigid:
+		if not text.fontFlags & fig.FontFlag.Rigid:
 			texSize *= self.fontMag
 
 		if texSize: # TODO: allow setting e.g. fontMag to 0 to prevent this:
@@ -514,41 +514,41 @@ class TikZConverter(object):
 		return result
 
 	def _textInFont(self, text):
-		if text.font == fig.fontZapfDingbats:
+		if text.font == fig.Font.ZapfDingbats:
 			# FIXME: \usepackage{pifont}
 			result = "".join([r"\ding{%d}" % ord(ch) for ch in text.text])
-		elif text.fontFlags & fig.ffSpecial:
+		elif text.fontFlags & fig.FontFlag.Special:
 			result = text.text
 		else:
 			result = escapeLaTeX(text.text)
 
-		if text.fontFlags & fig.ffPostScript:
+		if text.fontFlags & fig.FontFlag.PostScript:
 			pass # TODO
 		else:
-			if text.font == fig.fontLaTeXDefault:
+			if text.font == fig.LaTeXFont.Default:
 				pass
-			elif text.font == fig.fontLaTeXRoman:
+			elif text.font == fig.LaTeXFont.Roman:
 				result = r"\rmfamily " + result
-			elif text.font == fig.fontLaTeXBold:
+			elif text.font == fig.LaTeXFont.Bold:
 				result = r"\bfseries " + result
-			elif text.font == fig.fontLaTeXItalic:
+			elif text.font == fig.LaTeXFont.Italic:
 				result = r"\itshape " + result
-			elif text.font == fig.fontLaTeXSansSerif:
+			elif text.font == fig.LaTeXFont.SansSerif:
 				result = r"\sffamily " + result
-			elif text.font == fig.fontLaTeXTypewriter:
+			elif text.font == fig.LaTeXFont.Typewriter:
 				result = r"\ttfamily " + result
 
 		return result
 
 	def writeText(self, text):
-		if text.fontFlags & fig.ffHidden:
+		if text.fontFlags & fig.FontFlag.Hidden:
 			return
 
 		options = ["base"]
 
-		if text.alignment == fig.alignLeft:
+		if text.alignment == fig.Alignment.Left:
 			options.append("left")
-		elif text.alignment == fig.alignRight:
+		elif text.alignment == fig.Alignment.Right:
 			options.append("right")
 
 		if text.pos[0]:
@@ -560,7 +560,7 @@ class TikZConverter(object):
 
 		str = self._textInFont(text)
 
-		if text.penColor != fig.colorDefault:
+		if text.penColor != fig.Color.Default:
 			textColor = self.defineColor("textColor", text.penColor)
 			str = r"\color{%s}%s" % (textColor, str)
 
@@ -569,19 +569,19 @@ class TikZConverter(object):
 			self._textSizeCommand(text), str))
 
 	def writeTextNode(self, text):
-		if text.fontFlags & fig.ffHidden:
+		if text.fontFlags & fig.FontFlag.Hidden:
 			return
 
 		options = Options()
 		nodeOptions = Options()
 
-		if text.penColor != fig.colorDefault:
+		if text.penColor != fig.Color.Default:
 			nodeOptions["text"] = self.defineColor("textColor", text.penColor)
 
 		anchor = self.textAnchor
-		if text.alignment == fig.alignLeft:
+		if text.alignment == fig.Alignment.Left:
 			anchor += " west"
-		elif text.alignment == fig.alignRight:
+		elif text.alignment == fig.Alignment.Right:
 			anchor += " east"
 		nodeOptions["anchor"] = anchor
 

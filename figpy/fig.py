@@ -10,157 +10,212 @@ __version__ = "0.9"
 
 import sys, re, math, os, operator, copy
 
-#{ object codes
-_figCustomColor   = 0
-_figEllipse       = 1
-_figPolygon       = 2
-_figSpline        = 3
-_figText          = 4
-_figArc           = 5
-_figCompoundBegin = 6
-_figCompoundEnd   = -6
+from named_constants import Constants
 
-#{ polygon type constants (cf. `PolylineBase.changeType()`)
-ptPolyline    = 1
-ptBox         = 2
-ptPolygon     = 3
-ptArcBox      = 4
-ptPictureBBox = 5
+class ObjectType(Constants):
+    CustomColor   = 0
+    Ellipse       = 1
+    Polygon       = 2
+    Spline        = 3
+    Text          = 4
+    Arc           = 5
+    CompoundBegin = 6
+    CompoundEnd   = -6
 
-#{ ellipse type constants (cf. `EllipseBase.changeType()`)
-etEllipseRadii    = 1
-etEllipseDiameter = 2
-etCircleRadius    = 3
-etCircleDiameter  = 4
+class PolygonType(Constants):
+    """cf. `PolylineBase.changeType()`"""
+    Polyline    = 1
+    Box         = 2
+    Polygon     = 3
+    ArcBox      = 4
+    PictureBBox = 5
 
-#{ spline type constants (cf. `SplineBase.changeType()`)
-stOpenApproximated   = 0
-stClosedApproximated = 1
-stOpenInterpolated   = 2
-stClosedInterpolated = 3
-stOpenXSpline        = 4
-stClosedXSpline      = 5
+class EllipseType(Constants):
+    """cf. `EllipseBase.changeType()`"""
+    EllipseRadii    = 1
+    EllipseDiameter = 2
+    CircleRadius    = 3
+    CircleDiameter  = 4
 
-#{ arc type constants (cf. `ArcBase.changeType()`)
-atOpen = 1
-atPie  = 2
+class SplineType(Constants):
+    """cf. `SplineBase.changeType()`"""
+    OpenApproximated   = 0
+    ClosedApproximated = 1
+    OpenInterpolated   = 2
+    ClosedInterpolated = 3
+    OpenXSpline        = 4
+    ClosedXSpline      = 5
 
-#{ arc directions (cf. ArcBase.direction property)
-adClockwise = 0
-adCounterClockwise = 1
+class ArcType(Constants):
+    """cf. `ArcBase.changeType()`"""
+    Open = 1
+    Pie  = 2
 
-#{ fill style constants (cf. `Object.fillStyle` property)
-fillStyleNone    = -1
-fillStyleBlack   = 0
-fillStyleSolid   = 20
-fillStyleWhite   = 40
-fillStyleLeft30               = 41
-"30 degree left diagonal pattern"
-fillStyleRight30              = 42
-"30 degree right diagonal pattern"
-fillStyleCrossed30            = 43
-"30 degree cross-hatched pattern"
-fillStyleLeft45               = 44
-"45 degree left diagonal pattern"
-fillStyleRight45              = 45
-"45 degree right diagonal pattern"
-fillStyleCrossed45            = 46
-"45 degree cross-hatched pattern"
-fillStyleHorizontalBricks     = 47
-"horizontal bricks pattern"
-fillStyleVerticalBricks       = 48
-"vertical bricks pattern"
-fillStyleHorizontalLines      = 49
-"horizontal lines pattern"
-fillStyleVerticalLines        = 50
-"vertical lines pattern"
-fillStyleCrosshatch           = 51
-"crosshatch pattern"
-fillStyleHorizontalShingles1  = 52
-"horizontal \"shingles\" pattern skewed to the right"
-fillStyleHorizontalShingles2  = 53
-"horizontal \"shingles\" pattern skewed to the left"
-fillStyleVerticalShingles1    = 54
-"vertical \"shingles\" pattern skewed one way"
-fillStyleVerticalShingles2    = 55
-"vertical \"shingles\" pattern skewed the other way"
-fillStyleFishScales           = 56
-"fish scales pattern"
-fillStyleSmallFishScales      = 57
-"small fish scales pattern"
-fillStyleCircles              = 58
-"circles pattern"
-fillStyleHexagons             = 59
-"hexagons pattern"
-fillStyleOctagons             = 60
-"octagons pattern"
-fillStyleHorizontalTireTreads = 61
-"horizontal \"tire treads\" pattern"
-fillStyleVerticalTireTreads   = 62
-"vertical \"tire treads\" pattern"
-#}
+class ArcDirection(Constants):
+    """cf. ArcBase.direction property"""
+    Clockwise = 0
+    CounterClockwise = 1
 
-def fillStyleShaded(percent):
-	"""Return a fillStyle for dark shades of the fill color.
-	`percent` decides between 0 = black .. 100 = fillColor (5% steps)"""
-	return int(percent) / 5
-def fillStyleTinted(percent):
-	"""Return a fillStyle for light tinted fill colors.
-	`percent` decides between 0 = fillColor .. 100 = white (5% steps)"""
-	return 20 + int(percent) / 5
+class FillStyle(Constants):
+    """cf. `Object.fillStyle` property"""
+    None_                = -1
+    Black                = 0
+    Shaded5              = 1
+    Shaded10             = 2
+    Shaded15             = 3
+    Shaded20             = 4
+    Shaded25             = 5
+    Shaded30             = 6
+    Shaded35             = 7
+    Shaded40             = 8
+    Shaded45             = 9
+    Shaded50             = 10
+    Shaded55             = 11
+    Shaded60             = 12
+    Shaded65             = 13
+    Shaded70             = 14
+    Shaded75             = 15
+    Shaded80             = 16
+    Shaded85             = 17
+    Shaded90             = 18
+    Shaded95             = 19
+    Solid                = 20
+    Tinted95             = 21
+    Tinted90             = 22
+    Tinted85             = 23
+    Tinted80             = 24
+    Tinted75             = 25
+    Tinted70             = 26
+    Tinted65             = 27
+    Tinted60             = 28
+    Tinted55             = 29
+    Tinted50             = 30
+    Tinted45             = 31
+    Tinted40             = 32
+    Tinted35             = 33
+    Tinted30             = 34
+    Tinted25             = 35
+    Tinted20             = 36
+    Tinted15             = 37
+    Tinted10             = 38
+    Tinted5              = 39
+    White                = 40
+    Left30               = 41
+    "30 degree left diagonal pattern"
+    Right30              = 42
+    "30 degree right diagonal pattern"
+    Crossed30            = 43
+    "30 degree cross-hatched pattern"
+    Left45               = 44
+    "45 degree left diagonal pattern"
+    Right45              = 45
+    "45 degree right diagonal pattern"
+    Crossed45            = 46
+    "45 degree cross-hatched pattern"
+    HorizontalBricks     = 47
+    "horizontal bricks pattern"
+    VerticalBricks       = 48
+    "vertical bricks pattern"
+    HorizontalLines      = 49
+    "horizontal lines pattern"
+    VerticalLines        = 50
+    "vertical lines pattern"
+    Crosshatch           = 51
+    "crosshatch pattern"
+    HorizontalShingles1  = 52
+    "horizontal \"shingles\" pattern skewed to the right"
+    HorizontalShingles2  = 53
+    "horizontal \"shingles\" pattern skewed to the left"
+    VerticalShingles1    = 54
+    "vertical \"shingles\" pattern skewed one way"
+    VerticalShingles2    = 55
+    "vertical \"shingles\" pattern skewed the other way"
+    FishScales           = 56
+    "fish scales pattern"
+    SmallFishScales      = 57
+    "small fish scales pattern"
+    Circles              = 58
+    "circles pattern"
+    Hexagons             = 59
+    "hexagons pattern"
+    Octagons             = 60
+    "octagons pattern"
+    HorizontalTireTreads = 61
+    "horizontal \"tire treads\" pattern"
+    VerticalTireTreads   = 62
+    "vertical \"tire treads\" pattern"
 
-#{ arrow type constants (cf. `Arrow` class)
-arStick = 0
-"stick-type, three-stroke arrow head (default in xfig 2.1 and earlier)"
-arClosed = 1
-"closed triangle"
-arClosedIndented = 2
-"closed with 'indented' butt"
-arClosedPointed = 3
-"closed with 'pointed' butt"
-arClosedDiamond = 4
-"closed parallelogram"
-arClosedCircle = 5
-"closed circle"
-arHalfCircle = 6
-"open half-circle"
-arClosedRectangle = 7
-"closed rectangle"
-arClosedReverse = 8
-"closed reverse triangle"
-arHalfFilled = 9
-"half-filled triangle (side determined by arrow style)"
-arRightHalf = 10
-"right half of closed triangle"
-arRightHalfIndented = 11
-"right half of triangle with 'indented' butt"
-arRightHalfIndented = 12
-"right half of triangle with 'pointed' butt"
-arReversedStick = 13
-"open reversed triangle (alternate style: perpendicular line)"
-arOpenRectangle = 14
-"open rectangle (direction determined by arrow style)"
+    def shaded(percent):
+        """Return a fillStyle for dark shades of the fill color.
+        `percent` decides between 0 = black .. 100 = fillColor (5% steps)"""
+        return FillStyle(int(round(percent / 5.0)))
 
-#{ arrow style constants (cf. `Arrow` class)
-asHollow = 0
-"filled with white"
-asFilled = 1
-"filled with penColor"
+    def tinted(percent):
+        """Return a fillStyle for light tinted fill colors.
+        `percent` decides between 0 = white .. 100 = fillColor (5% steps)"""
+        return FillStyle(40 - int(round(percent / 5.0)))
 
-#{ line style constants (cf. `Object.lineStyle` property)
-lineStyleDefault          = -1
-lineStyleSolid            = 0
-lineStyleDashed           = 1
-lineStyleDotted           = 2
-lineStyleDashDotted       = 3
-lineStyleDashDoubleDotted = 4
-lineStyleDashTripleDotted = 5
+class ArrowType(Constants):
+    """cf. `Arrow` class"""
+    Stick = 0
+    "stick-type, three-stroke arrow head (default in xfig 2.1 and earlier)"
+    Closed = 1
+    "closed triangle"
+    ClosedIndented = 2
+    "closed with 'indented' butt"
+    ClosedPointed = 3
+    "closed with 'pointed' butt"
+    ClosedDiamond = 4
+    "closed parallelogram"
+    ClosedCircle = 5
+    "closed circle"
+    HalfCircle = 6
+    "open half-circle"
+    ClosedRectangle = 7
+    "closed rectangle"
+    ClosedReverse = 8
+    "closed reverse triangle"
+    HalfFilled = 9
+    "half-filled triangle (side determined by arrow style)"
+    RightHalf = 10
+    "right half of closed triangle"
+    RightHalfIndented = 11
+    "right half of triangle with 'indented' butt"
+    RightHalfIndented = 12
+    "right half of triangle with 'pointed' butt"
+    ReversedStick = 13
+    "open reversed triangle (alternate style: perpendicular line)"
+    OpenRectangle = 14
+    "open rectangle (direction determined by arrow style)"
 
-#{ cap style constants (cf. `Object.capStyle` property, used by Polyline, OpenArc, and open splines)
-capStyleButt = 0
-capStyleRound = 1
-capStyleProjecting = 2
-#}
+class ArrowStyle(Constants):
+    """cf. `Arrow` class"""
+    Hollow = 0
+    "filled with white"
+    Filled = 1
+    "filled with penColor"
+
+class LineStyle(Constants):
+    """cf. `Object.lineStyle` property"""
+    Default          = -1
+    Solid            = 0
+    Dashed           = 1
+    Dotted           = 2
+    DashDotted       = 3
+    DashDoubleDotted = 4
+    DashTripleDotted = 5
+
+class CapStyle(Constants):
+    """cf. `Object.capStyle` property, used by Polyline, OpenArc, and open splines"""
+    Butt = 0
+    Round = 1
+    Projecting = 2
+
+class JoinStyle(Constants):
+    """cf. `Object.joinStyle` property, used for `Polyline` objects only"""
+    Miter = 0
+    Round = 1
+    Bevel = 2
 
 standardColors = [
 	# pure colors:
@@ -207,105 +262,104 @@ standardColors = [
 	]
 "Mapping of the standard colors to RGB triples."
 
-#{ color constants (cf. `Object.penColor` and `Object.fillColor` properties)
-colorDefault   = -1
-colorBlack     = 0
-colorBlue      = 1
-colorGreen     = 2
-colorCyan      = 3
-colorRed       = 4
-colorMagenta   = 5
-colorYellow    = 6
-colorWhite     = 7
-colorBlue4     = 8
-colorBlue3     = 9
-colorBlue2     = 10
-colorLightBlue = 11
-colorGreen4    = 12
-colorGreen3    = 13
-colorGreen2    = 14
-colorCyan4     = 15
-colorCyan3     = 16
-colorCyan2     = 17
-colorRed4      = 18
-colorRed3      = 19
-colorRed2      = 20
-colorMagenta4  = 21
-colorMagenta3  = 22
-colorMagenta2  = 23
-colorBrown4    = 24
-colorBrown3    = 25
-colorBrown2    = 26
-colorPink4     = 27
-colorPink3     = 28
-colorPink2     = 29
-colorLightPink = 30
-colorGold      = 31
-colorCustom0   = 32
+class Color(Constants):
+    """cf. `Object.penColor` and `Object.fillColor` properties"""
+    Default   = -1
+    Black     = 0
+    Blue      = 1
+    Green     = 2
+    Cyan      = 3
+    Red       = 4
+    Magenta   = 5
+    Yellow    = 6
+    White     = 7
+    Blue4     = 8
+    Blue3     = 9
+    Blue2     = 10
+    LightBlue = 11
+    Green4    = 12
+    Green3    = 13
+    Green2    = 14
+    Cyan4     = 15
+    Cyan3     = 16
+    Cyan2     = 17
+    Red4      = 18
+    Red3      = 19
+    Red2      = 20
+    Magenta4  = 21
+    Magenta3  = 22
+    Magenta2  = 23
+    Brown4    = 24
+    Brown3    = 25
+    Brown2    = 26
+    Pink4     = 27
+    Pink3     = 28
+    Pink2     = 29
+    LightPink = 30
+    Gold      = 31
+    Custom0   = 32
 
-#{ join style constants (cf. `Object.joinStyle` property, used for `Polyline` objects only)
-joinStyleMiter = 0
-joinStyleRound = 1
-joinStyleBevel = 2
+class Alignment(Constants):
+    """cf. `Text.alignment` property"""
+    Left     = 0
+    Centered = 1
+    Right    = 2
 
-#{ alignment constants (cf. `Text.alignment` property)
-alignLeft     = 0
-alignCentered = 1
-alignRight    = 2
+class Font(Constants):
+    """cf. `Text.font` property, only valid if `Text.fontFlags` & FontFlag.PostScript"""
+    Default                        = -1
+    TimesRoman                     = 0
+    TimesItalic                    = 1
+    TimesBold                      = 2
+    TimesBoldItalic                = 3
+    AvantGardeBook                 = 4
+    AvantGardeBookOblique          = 5
+    AvantGardeDemi                 = 6
+    AvantGardeDemiOblique          = 7
+    BookmanLight                   = 8
+    BookmanLightItalic             = 9
+    BookmanDemi                    = 10
+    BookmanDemiItalic              = 11
+    Courier                        = 12
+    CourierOblique                 = 13
+    CourierBold                    = 14
+    CourierBoldOblique             = 15
+    Helvetica                      = 16
+    HelveticaOblique               = 17
+    HelveticaBold                  = 18
+    HelveticaBoldOblique           = 19
+    HelveticaNarrow                = 20
+    HelveticaNarrowOblique         = 21
+    HelveticaNarrowBold            = 22
+    HelveticaNarrowBoldOblique     = 23
+    NewCenturySchoolbookRoman      = 24
+    NewCenturySchoolbookItalic     = 25
+    NewCenturySchoolbookBold       = 26
+    NewCenturySchoolbookBoldItalic = 27
+    PalatinoRoman                  = 28
+    PalatinoItalic                 = 29
+    PalatinoBold                   = 30
+    PalatinoBoldItalic             = 31
+    Symbol                         = 32
+    ZapfChanceryMediumItalic       = 33
+    ZapfDingbats                   = 34
 
-#{ PS font constants (cf. `Text.font` property, only valid if `Text.fontFlags` & ffPostScript)
-fontDefault                        = -1
-fontTimesRoman                     = 0
-fontTimesItalic                    = 1
-fontTimesBold                      = 2
-fontTimesBoldItalic                = 3
-fontAvantGardeBook                 = 4
-fontAvantGardeBookOblique          = 5
-fontAvantGardeDemi                 = 6
-fontAvantGardeDemiOblique          = 7
-fontBookmanLight                   = 8
-fontBookmanLightItalic             = 9
-fontBookmanDemi                    = 10
-fontBookmanDemiItalic              = 11
-fontCourier                        = 12
-fontCourierOblique                 = 13
-fontCourierBold                    = 14
-fontCourierBoldOblique             = 15
-fontHelvetica                      = 16
-fontHelveticaOblique               = 17
-fontHelveticaBold                  = 18
-fontHelveticaBoldOblique           = 19
-fontHelveticaNarrow                = 20
-fontHelveticaNarrowOblique         = 21
-fontHelveticaNarrowBold            = 22
-fontHelveticaNarrowBoldOblique     = 23
-fontNewCenturySchoolbookRoman      = 24
-fontNewCenturySchoolbookItalic     = 25
-fontNewCenturySchoolbookBold       = 26
-fontNewCenturySchoolbookBoldItalic = 27
-fontPalatinoRoman                  = 28
-fontPalatinoItalic                 = 29
-fontPalatinoBold                   = 30
-fontPalatinoBoldItalic             = 31
-fontSymbol                         = 32
-fontZapfChanceryMediumItalic       = 33
-fontZapfDingbats                   = 34
+class LaTeXFont(Constants):
+    """cf. `Text.font` property, only valid if `Text.fontFlags` & FontFlag.PostScript == 0"""
+    LaTeXDefault = 0
+    LaTeXRoman = 1
+    LaTeXBold = 2
+    LaTeXItalic = 3
+    LaTeXSansSerif = 4
+    LaTeXTypewriter = 5
 
-#{ LaTeX font constants (cf. `Text.font` property, only valid if `Text.fontFlags` & ffPostScript == 0)
-fontLaTeXDefault = 0
-fontLaTeXRoman = 1
-fontLaTeXBold = 2
-fontLaTeXItalic = 3
-fontLaTeXSansSerif = 4
-fontLaTeXTypewriter = 5
+class FontFlag(Constants):
+    """cf. `Text.fontFlags` property"""
+    Rigid      = 1
+    Special    = 2
+    PostScript = 4
+    Hidden     = 8
 
-#{ font flag constants (cf. `Text.fontFlags` property)
-ffRigid      = 1
-ffSpecial    = 2
-ffPostScript = 4
-ffHidden     = 8
-
-#}
 paperSizes = ["Letter", "Legal", "Ledger", "Tabloid",
 			  "A", "B", "C", "D", "E",
 			  "A4", "A3", "A2", "A1", "A0", "B5"]
@@ -594,7 +648,7 @@ class CustomColor(object):
 		#sys.stderr.write("CustomColor(%d, '%s') -> %s" % (index, hexCode, repr(self)))
 
 	def __repr__(self):
-		return _join(_figCustomColor, self.index, self.hexCode) + "\n"
+		return _join(ObjectType.CustomColor, self.index, self.hexCode) + "\n"
 
 	def __str__(self):
 		return str(self.index)
@@ -636,14 +690,14 @@ class CustomColor(object):
 class Object(object):
 	"""Base class of all fig objects.  Handles common properties like
 	
-	- lineStyle (see `lineStyleXXX` constants)
+	- lineStyle (see `LineStyle.XXX` constants)
 	- lineWidth (1/80th inch)
 	- styleValue (dash length / dot gap ratio), in 1/80th inches
-	- penColor, fillColor (see `colorXXX` constants)
-	- fillStyle (see `fillStyleXXX` constants)
+	- penColor, fillColor (see `Color.XXX` constants)
+	- fillStyle (see `FillStyle.XXX` constants)
 	- depth (0-999)
-	- joinStyle (see `joinStyleXXX` constants)
-	- capStyle (see `capStyleXXX` constants)
+	- joinStyle (see `JoinStyle.XXX` constants)
+	- capStyle (see `CapStyle.XXX` constants)
 	- forwardArrow/backwardArrow (`Arrow` objects)"""
 
 	__slots__ = ("lineStyle", "lineWidth", "penColor", "fillColor", "depth",
@@ -651,19 +705,19 @@ class Object(object):
 				 "forwardArrow", "backwardArrow", "comment")
 
 	def __init__(self):
-		self.lineStyle = lineStyleDefault
+		self.lineStyle = LineStyle.Default
 # Line thicknesses are given in 1/80 inch (0.3175mm) or 1 screen pixel.
 # When exporting to EPS, PostScript or any bitmap format (e.g. GIF),  the
 # line thickness is reduced to 1/160 inch (0.159mm) to "lighten" the look.
 		self.lineWidth = 1
-		self.penColor = colorDefault
-		self.fillColor = colorDefault
+		self.penColor = Color.Default
+		self.fillColor = Color.Default
 		self.depth = 50
 		self.penStyle = 0 # not used
-		self.fillStyle = fillStyleNone
+		self.fillStyle = FillStyle.None_
 		self.styleValue = 3.0
-		self.joinStyle = 0
-		self.capStyle = 0
+		self.joinStyle = JoinStyle(0)
+		self.capStyle = CapStyle(0)
 		self.forwardArrow = None
 		self.backwardArrow = None
 		self.comment = ""
@@ -672,8 +726,8 @@ class Object(object):
 		return _formatComment(self.comment) + _join(
 			figType, subType,
 			self.lineStyle, self.lineWidth,
-			self.penColor is None and colorDefault or self.penColor,
-			self.fillColor is None and colorDefault or self.fillColor,
+			self.penColor is None and Color.Default or self.penColor,
+			self.fillColor is None and Color.Default or self.fillColor,
 			self.depth, self.penStyle,
 			self.fillStyle, str(self.styleValue),
 			*rest)
@@ -684,14 +738,14 @@ class Arrow(object):
 	`forwardArrow`/`backwardArrow` properties of `fig.Object`.
 	The Arrow properties are
 	
-	- type (see `arXXX` constants - note that atXXX are the arc types)
-	- style (`asHollow` or `asFilled`)
+	- type (see `ArrowType.XXX` constants)
+	- style (`ArrowStyle.Hollow` or `ArrowStyle.Filled`)
 	- thickness, in 1/80th inches
 	- width, height (in fig units)"""
 
 	__slots__ = ("type", "style", "thickness", "width", "height")
 	
-	def __init__(self, type = arStick, style = asHollow,
+	def __init__(self, type = ArrowType.Stick, style = ArrowStyle.Hollow,
 				 thickness = 1.0, width = 60.0, height = 120.0):
 		self.type = type
 		self.style = style
@@ -720,7 +774,7 @@ class ArcBase(Object):
 	def __init__(self, center = None,
 				 point1 = None, point2 = None,
 				 angle1 = None, angle2 = None, radius = None,
-				 direction = adClockwise):
+				 direction = ArcDirection.Clockwise):
 		Object.__init__(self)
 		self.center = center
 		self.points = None
@@ -748,9 +802,9 @@ class ArcBase(Object):
 
 	def _angleDiff(self, angle2, angle1, direction):
 		"""Return (angle2 - angle1) in the range [-2pi..0) if
-		direction == adClockwise, and in the range [0..2pi) otherwise."""
+		direction == ArcDirection.Clockwise, and in the range [0..2pi) otherwise."""
 		result = angle2 - angle1
-		if direction == adClockwise:
+		if direction == ArcDirection.Clockwise:
 			while result > 0:
 				result -= 2*math.pi
 			if result <= -2*math.pi:
@@ -764,7 +818,7 @@ class ArcBase(Object):
 
 	def angles(self):
 		"""Return start- and end-angle (in radians).  The second angle
-		is smaller than the first iff direction is adClockwise."""
+		is smaller than the first iff direction is ArcDirection.Clockwise."""
 		point1, _, point2 = self.points
 		angle1 = math.atan2(-(point1[1] - self.center[1]),
 							  point1[0] - self.center[0])
@@ -778,8 +832,8 @@ class ArcBase(Object):
 		return (Vector(*self.center) - self.points[0]).length()
 
 	def changeType(self, arcType):
-		"Change type of this Arc. arcType may be one of atPie or atOpen"
-		if arcType == atPie:
+		"Change type of this Arc. arcType may be one of ArcType.Pie or ArcType.Open"
+		if arcType == ArcType.Pie:
 			self.__class__ = PieArc
 		else:
 			self.__class__ = OpenArc
@@ -790,7 +844,7 @@ class ArcBase(Object):
 		hasBackwardArrow = (self.backwardArrow != None and 1 or 0)
 		
 		result = self._joinWithProperties(
-			_figArc, self.arcType(),
+			ObjectType.Arc, self.arcType(),
 			self.capStyle, self.direction,
 			hasForwardArrow, hasBackwardArrow,
 			str(self.center[0]), str(self.center[1]),
@@ -828,8 +882,8 @@ class PieArc(ArcBase):
 	__slots__ = ()
 
 	def arcType(self):
-		"Return type of this Arc (atPie), see `changeType`."
-		return atPie
+		"Return type of this Arc (ArcType.Pie), see `changeType`."
+		return ArcType.Pie
 
 	def closed(self):
 		"""Return whether this arc is closed (True for all
@@ -842,8 +896,8 @@ class OpenArc(ArcBase):
 	__slots__ = ()
 
 	def arcType(self):
-		"Return type of this Arc (atOpen), see `changeType`."
-		return atOpen
+		"Return type of this Arc (ArcType.Open), see `changeType`."
+		return ArcType.Open
 
 	def closed(self):
 		"""Return whether this arc is closed (False for all
@@ -895,26 +949,26 @@ class EllipseBase(Object):
 
 	def changeType(self, ellipseType):
 		"""Change type of this Ellipse object.  `ellipseType` may be one
-		of the `etXXX` constants:
+		of the `EllipseType.XXX` constants:
 
-		- etEllipseRadii
-		- etEllipseDiameter
-		- etCircleRadius
-		- etCircleDiameter
+		- EllipseType.EllipseRadii
+		- EllipseType.EllipseDiameter
+		- EllipseType.CircleRadius
+		- EllipseType.CircleDiameter
 
 		This method may change the type of this object to another
 		`EllipseBase`-derived class."""
 
-		if ellipseType in (etEllipseRadii, etEllipseDiameter):
+		if ellipseType in (EllipseType.EllipseRadii, EllipseType.EllipseDiameter):
 			self.__class__ = Ellipse
-		elif ellipseType in (etCircleRadius, etCircleDiameter):
+		elif ellipseType in (EllipseType.CircleRadius, EllipseType.CircleDiameter):
 			self.__class__ = Circle
 		else:
 			raise ValueError("Unknown ellipseType %d!" % ellipseType)
 
 	def __str__(self):
 		return self._joinWithProperties(
-			_figEllipse, self.ellipseType(),
+			ObjectType.Ellipse, self.ellipseType(),
 			1, # "1" is self.direction
 			str(self.angle % (2*math.pi)),
 			self.center[0], self.center[1],
@@ -984,13 +1038,13 @@ class Ellipse(EllipseBase):
 			self.setStartEnd(start, end)
 
 	def ellipseType(self):
-		"""Return type of this ellipse (one of etEllipseRadii,
-		etEllipseDiameter for `Ellipse` objects), see `changeType`."""
+		"""Return type of this ellipse (one of EllipseType.EllipseRadii,
+		EllipseType.EllipseDiameter for `Ellipse` objects), see `changeType`."""
 
 		if self.center == self.start:
-			return etEllipseRadii
+			return EllipseType.EllipseRadii
 		else:
-			return etEllipseDiameter
+			return EllipseType.EllipseDiameter
 
 	def setStartEnd(self, start, end):
 		self.start = start
@@ -1016,18 +1070,18 @@ class Circle(EllipseBase):
 			self.setStartEnd(start, end)
 
 	def ellipseType(self):
-		"""Return type of this ellipse (one of etCircleRadius,
-		etCircleDiameter for `Circle` objects), see `changeType`."""
+		"""Return type of this ellipse (one of EllipseType.CircleRadius,
+		EllipseType.CircleDiameter for `Circle` objects), see `changeType`."""
 
 		if self.center == self.start:
-			return etCircleRadius
+			return EllipseType.CircleRadius
 		else:
-			return etCircleDiameter
+			return EllipseType.CircleDiameter
 
 	def setStartEnd(self, start, end):
 		self.start = start
 		self.end = end
-		# FIXME: depend on ellipseType
+		# FIXME: depend on ellipseType?
 		self.center = ((start[0] + end[0])/2,
 					   (start[1] + end[1])/2)
 		radius = math.hypot(end[0] - self.center[0],
@@ -1058,13 +1112,13 @@ class PolylineBase(Object):
 
 	def changeType(self, polylineType, retainPoints = False):
 		"""Change type of this Polyline object.  `polylineType` may be one
-		of the `ptXXX` constants:
+		of the `PolygonType.XXX` constants:
 
-		- ptPolyline
-		- ptBox
-		- ptPolygon
-		- ptArcBox
-		- ptPictureBBox
+		- PolygonType.Polyline
+		- PolygonType.Box
+		- PolygonType.Polygon
+		- PolygonType.ArcBox
+		- PolygonType.PictureBBox
 
 		This method may change the type of this object to another
 		`PolylineBase`-derived class.
@@ -1076,15 +1130,15 @@ class PolylineBase(Object):
 		wasClosed = None
 		if type(self) != PolylineBase:
 			wasClosed = self.closed()
-		if polylineType == ptPolyline:
+		if polylineType == PolygonType.Polyline:
 			self.__class__ = Polyline
-		if polylineType == ptBox:
+		if polylineType == PolygonType.Box:
 			self.__class__ = PolyBox
-		if polylineType == ptPolygon:
+		if polylineType == PolygonType.Polygon:
 			self.__class__ = Polygon
-		if polylineType == ptArcBox:
+		if polylineType == PolygonType.ArcBox:
 			self.__class__ = ArcBox
-		if polylineType == ptPictureBBox:
+		if polylineType == PolygonType.PictureBBox:
 			self.__class__ = PictureBBox
 		if retainPoints or wasClosed == None:
 			return
@@ -1113,7 +1167,7 @@ class PolylineBase(Object):
 		hasBackwardArrow = (self.backwardArrow != None and 1 or 0)
 		
 		result = self._joinWithProperties(
-			_figPolygon, self.polylineType(),
+			ObjectType.Polygon, self.polylineType(),
 			self.joinStyle, self.capStyle, self.radius,
 			hasForwardArrow, hasBackwardArrow,
 			pointCount) + "\n"
@@ -1214,10 +1268,10 @@ class PolyBox(PolylineBase):
 		self.points.append(Vector(x1, y2))
 
 	def polylineType(self):
-		"""Return type of this polygon (ptBox for all `PolyBox` objects),
+		"""Return type of this polygon (PolygonType.Box for all `PolyBox` objects),
 		see `changeType`."""
 
-		return ptBox
+		return PolygonType.Box
 
 	def closed(self):
 		"""Return whether this polygon is closed (True for all
@@ -1251,10 +1305,10 @@ class ArcBox(PolyBox):
 	__slots__ = ()
 
 	def polylineType(self):
-		"""Return type of this polygon (ptArcBox for all `ArcBox` objects),
+		"""Return type of this polygon (PolygonType.ArcBox for all `ArcBox` objects),
 		see `changeType`."""
 
-		return ptArcBox
+		return PolygonType.ArcBox
 
 class Polygon(PolylineBase):
 	"""Represents a closed polygon object."""
@@ -1265,13 +1319,13 @@ class Polygon(PolylineBase):
 		PolylineBase.__init__(self)
 		self.points = points
 		if not closed:
-			self.changeType(ptPolyline, retainPoints = True)
+			self.changeType(PolygonType.Polyline, retainPoints = True)
 
 	def polylineType(self):
-		"""Return type of this polygon (ptPolygon for all `Polygon` objects),
+		"""Return type of this polygon (PolygonType.Polygon for all `Polygon` objects),
 		see `changeType`."""
 
-		return ptPolygon
+		return PolygonType.Polygon
 
 	def closed(self):
 		"""Return whether this polygon is closed (True for all
@@ -1288,10 +1342,10 @@ class Polyline(PolylineBase):
 		self.points = points
 
 	def polylineType(self):
-		"""Return type of this polygon (ptPolyline for all `Polyline`
+		"""Return type of this polygon (PolygonType.Polyline for all `Polyline`
 		objects), see `changeType`."""
 
-		return ptPolyline
+		return PolygonType.Polyline
 
 	def closed(self):
 		"""Return whether this polygon is closed (False for all
@@ -1311,10 +1365,10 @@ class PictureBBox(PolyBox):
 		self.flipped = flipped
 
 	def polylineType(self):
-		"""Return type of this polygon (ptPictureBBox for all
+		"""Return type of this polygon (PolygonType.PictureBBox for all
 		`PictureBBox` objects), see `changeType`."""
 
-		return ptPictureBBox
+		return PolygonType.PictureBBox
 
 	def closed(self):
 		"""Return whether this polygon is closed (True for all
@@ -1357,34 +1411,34 @@ class SplineBase(Object):
 
 	def changeType(self, splineType):
 		"""Change type of this Spline object.  `splineType` may be one
-		of the `stXXX` constants:
+		of the `SplineType.XXX` constants:
 
-		- stOpenApproximated
-		- stClosedApproximated
-		- stOpenInterpolated
-		- stClosedInterpolated
-		- stOpenXSpline
-		- stClosedXSpline
+		- SplineType.OpenApproximated
+		- SplineType.ClosedApproximated
+		- SplineType.OpenInterpolated
+		- SplineType.ClosedInterpolated
+		- SplineType.OpenXSpline
+		- SplineType.ClosedXSpline
 
 		This method may change the type of this object to another
 		`SplineBase`-derived class."""
 
-		if splineType == stOpenApproximated:
+		if splineType == SplineType.OpenApproximated:
 			self.__class__ = ApproximatedSpline
 			self._closed = False
-		elif splineType == stClosedApproximated:
+		elif splineType == SplineType.ClosedApproximated:
 			self.__class__ = ApproximatedSpline
 			self._closed = True
-		elif splineType == stOpenInterpolated:
+		elif splineType == SplineType.OpenInterpolated:
 			self.__class__ = InterpolatedSpline
 			self._closed = False
-		elif splineType == stClosedInterpolated:
+		elif splineType == SplineType.ClosedInterpolated:
 			self.__class__ = InterpolatedSpline
 			self._closed = True
-		elif splineType == stOpenXSpline:
+		elif splineType == SplineType.OpenXSpline:
 			self.__class__ = XSpline
 			self._closed = False
-		elif splineType == stClosedXSpline:
+		elif splineType == SplineType.ClosedXSpline:
 			self.__class__ = XSpline
 			self._closed = True
 
@@ -1395,7 +1449,7 @@ class SplineBase(Object):
 		hasBackwardArrow = (self.backwardArrow != None and 1 or 0)
 
 		result = self._joinWithProperties(
-			_figSpline, self.splineType(),
+			ObjectType.Spline, self.splineType(),
 			self.capStyle,
 			hasForwardArrow, hasBackwardArrow,
 			pointCount) + "\n"
@@ -1473,7 +1527,7 @@ class ApproximatedSpline(SplineBase):
 		return 1.0
 
 	def splineType(self):
-		return self._closed and stClosedApproximated or stOpenApproximated
+		return self._closed and SplineType.ClosedApproximated or SplineType.OpenApproximated
 
 class InterpolatedSpline(SplineBase):
 	"""Represents an open or closed interpolated spline object."""
@@ -1484,7 +1538,7 @@ class InterpolatedSpline(SplineBase):
 		return -1.0
 
 	def splineType(self):
-		return self._closed and stClosedInterpolated or stOpenInterpolated
+		return self._closed and SplineType.ClosedInterpolated or SplineType.OpenInterpolated
 
 class XSpline(SplineBase):
 	"""Represents an open or closed 'x-spline' object."""
@@ -1495,7 +1549,7 @@ class XSpline(SplineBase):
 		return 0.0 # ATT: this value is checked in shapeFactors() ATM
 
 	def splineType(self):
-		return self._closed and stClosedXSpline or stOpenXSpline
+		return self._closed and SplineType.ClosedXSpline or SplineType.OpenXSpline
 
 def _readSplineBase(params):
 	result = SplineBase()
@@ -1530,10 +1584,10 @@ class Text(Object):
 
 	- text (the string)
 	- x, y (position)
-	- alignment (cf. `alignXXX` constants)
-	- font (cf. fontXXX constants)
+	- alignment (cf. `Alignment.XXX` constants)
+	- font (cf. Font.XXX constants)
 	- fontSize (default: 12)
-	- fontFlags (cf. `ffXXX` constants, default: ffPostScript)
+	- fontFlags (cf. `FontFlag.XXX` constants, default: FontFlag.PostScript)
 	- angle (default: 0.0)
 	- length, height (dummy values, no guarantee about correctness)
 	"""
@@ -1543,8 +1597,8 @@ class Text(Object):
 				 "length", "height")
 
 	def __init__(self, pos, text,
-				 font = None, fontSize = 12, fontFlags = ffPostScript,
-				 alignment = alignLeft, angle = 0.0):
+				 font = None, fontSize = 12, fontFlags = FontFlag.PostScript,
+				 alignment = Alignment.Left, angle = 0.0):
 		Object.__init__(self)
 		self.pos = pos
 		self.text = text
@@ -1566,13 +1620,13 @@ class Text(Object):
 
 	def bounds(self):
 		result = Rect()
-		if self.alignment == alignLeft:
+		if self.alignment == Alignment.Left:
 			result((self.pos[0],                 self.pos[1] - self.height))
 			result((self.pos[0] + self.length,   self.pos[1]))
-		elif self.alignment == alignCentered:
+		elif self.alignment == Alignment.Centered:
 			result((self.pos[0] - self.length/2, self.pos[1] - self.height))
 			result((self.pos[0] + self.length/2, self.pos[1]))
-		elif self.alignment == alignRight:
+		elif self.alignment == Alignment.Right:
 			result((self.pos[0],                 self.pos[1] - self.height))
 			result((self.pos[0] + self.length,   self.pos[1]))
 		return result
@@ -1580,11 +1634,11 @@ class Text(Object):
 	def __str__(self):
 		font = self.font
 		if self.font is None:
-			font = self.fontFlags & ffPostScript \
-				   and fontDefault or fontLaTeXDefault
+			font = self.fontFlags & FontFlag.PostScript \
+				   and fontDefault or LaTeXFont.Default
 		result = _formatComment(self.comment) + \
-				 _join(_figText, self.alignment,
-					   self.penColor is None and colorDefault or self.penColor,
+				 _join(ObjectType.Text, self.alignment,
+					   self.penColor is None and Color.Default or self.penColor,
 					   self.depth, self.penStyle,
 					   font, self.fontSize, str(self.angle), self.fontFlags,
 					   self.height, self.length, self.pos[0], self.pos[1],
@@ -1903,10 +1957,10 @@ class Compound(Container):
 			contents += str(o)
 		b = self.bounds()
 		return _formatComment(self.comment) + \
-			   _join(_figCompoundBegin,
+			   _join(ObjectType.CompoundBegin,
 					 int(b.x1), int(b.y1),
 					 int(b.x2), int(b.y2)) + "\n" + \
-			   contents + str(_figCompoundEnd) + "\n"
+			   contents + str(ObjectType.CompoundEnd) + "\n"
 
 def _readCompound(params):
 	# ignore bounds passed in params, since we cannot guarantee proper
@@ -1992,40 +2046,40 @@ class File(Container):
 					if subLineExpected:
 						subLineExpected = currentObject._readSub(params)
 					else:
-						objectType = int(params[0])
+						objectType = ObjectType(int(params[0]))
 						subLineExpected = 0
-						if objectType == _figCustomColor:
+						if objectType == ObjectType.CustomColor:
 							cc = self.addColor(CustomColor(int(params[1]), params[2]))
-							assert cc.index == colorCustom0 + len(self.colors) - 1, \
+							assert cc.index == Color.Custom0 + len(self.colors) - 1, \
 								   "non-contiguous custom color indices found - not handled yet!"
-						elif objectType == _figPolygon:
+						elif objectType == ObjectType.Polygon:
 							currentObject, subLineExpected = _readPolylineBase(params[1:])
 							currentObject.comment = currentComment
 							currentComment = ""
-						elif objectType == _figArc:
+						elif objectType == ObjectType.Arc:
 							currentObject, subLineExpected = _readArcBase(params[1:])
 							currentObject.comment = currentComment
 							currentComment = ""
-						elif objectType == _figSpline:
+						elif objectType == ObjectType.Spline:
 							currentObject, subLineExpected = _readSplineBase(params[1:])
 							currentObject.comment = currentComment
 							currentComment = ""
-						elif objectType == _figText:
+						elif objectType == ObjectType.Text:
 							assert line[-4:] == "\\001"
 							currentObject, subLineExpected = _readText(
 								params[1:], (
 								line.split(None, 12)[-1]).split(" ", 1)[1][:-4])
 							currentObject.comment = currentComment
 							currentComment = ""
-						elif objectType == _figEllipse:
+						elif objectType == ObjectType.Ellipse:
 							currentObject, subLineExpected = _readEllipseBase(params[1:])
 							currentObject.comment = currentComment
 							currentComment = ""
-						elif objectType == _figCompoundBegin:
+						elif objectType == ObjectType.CompoundBegin:
 							stack.append(_readCompound(params[1:]))
 							stack[-1].comment = currentComment
 							currentComment = ""
-						elif objectType == _figCompoundEnd:
+						elif objectType == ObjectType.CompoundEnd:
 							currentObject = stack.pop()
 						else:
 							raise ValueError(
@@ -2064,7 +2118,7 @@ class File(Container):
 		assert len(self.colors) < 512, \
 			   ".fig file format does not allow more than 512 custom colors!"
 		if isinstance(hexCode, str):
-			result = CustomColor(colorCustom0 + len(self.colors), hexCode)
+			result = CustomColor(Color.Custom0 + len(self.colors), hexCode)
 		elif isinstance(hexCode, CustomColor):
 			result = hexCode
 			hexCode = result.hexCode
@@ -2147,12 +2201,12 @@ class File(Container):
 		"""Return a the R,G,B tuple for the given color index.
 		(With values from the range 0..255.)"""
 		
-		assert colorIndex >= 0 and colorIndex < colorCustom0 + len(self.colors), \
+		assert colorIndex >= 0 and colorIndex < Color.Custom0 + len(self.colors), \
 			   "invalid color index %d" % colorIndex
-		if colorIndex < colorCustom0:
+		if colorIndex < Color.Custom0:
 			return standardColors[colorIndex]
 		else:
-			return self.colors[colorIndex - colorCustom0].rgb()
+			return self.colors[colorIndex - Color.Custom0].rgb()
 
 	def gray(self, grayLevel):
 		"""Return a color representing the given graylevel (see
@@ -2313,9 +2367,9 @@ def copyObjects(fileA, fileB):
 
 	for o in fileA.allObjects():
 		o = copy.deepcopy(o)
-		if o.penColor >= colorCustom0:
+		if o.penColor >= Color.Custom0:
 			o.penColor = colorMap[int(o.penColor)]
-		if o.fillColor >= colorCustom0:
+		if o.fillColor >= Color.Custom0:
 			o.fillColor = colorMap[int(o.fillColor)]
 		fileB.append(o)
 

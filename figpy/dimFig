@@ -42,10 +42,10 @@ for c in figFile.colors:
 standardMapping = []
 for c in fig.standardColors:
 	standardMapping.append(None)
-standardMapping.append(-1) # map fig.colorDefault to itself
+standardMapping.append(-1) # map fig.Color.Default to itself
 
 def mapColor(c):
-	if c >= fig.colorCustom0:
+	if c >= fig.Color.Custom0:
 		return c
 	result = standardMapping[c]
 	if result == None:
