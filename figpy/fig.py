@@ -12,7 +12,12 @@ import sys, re, math, os, operator, copy
 
 from named_constants import Constants
 
-class ObjectType(Constants):
+class FigConstants(Constants):
+    @classmethod
+    def read(cls, i):
+        return cls(int(i))
+
+class ObjectType(FigConstants):
     CustomColor   = 0
     Ellipse       = 1
     Polygon       = 2
@@ -22,7 +27,7 @@ class ObjectType(Constants):
     CompoundBegin = 6
     CompoundEnd   = -6
 
-class PolygonType(Constants):
+class PolygonType(FigConstants):
     """cf. `PolylineBase.changeType()`"""
     Polyline    = 1
     Box         = 2
@@ -30,14 +35,14 @@ class PolygonType(Constants):
     ArcBox      = 4
     PictureBBox = 5
 
-class EllipseType(Constants):
+class EllipseType(FigConstants):
     """cf. `EllipseBase.changeType()`"""
     EllipseRadii    = 1
     EllipseDiameter = 2
     CircleRadius    = 3
     CircleDiameter  = 4
 
-class SplineType(Constants):
+class SplineType(FigConstants):
     """cf. `SplineBase.changeType()`"""
     OpenApproximated   = 0
     ClosedApproximated = 1
@@ -46,17 +51,17 @@ class SplineType(Constants):
     OpenXSpline        = 4
     ClosedXSpline      = 5
 
-class ArcType(Constants):
+class ArcType(FigConstants):
     """cf. `ArcBase.changeType()`"""
     Open = 1
     Pie  = 2
 
-class ArcDirection(Constants):
+class ArcDirection(FigConstants):
     """cf. ArcBase.direction property"""
     Clockwise = 0
     CounterClockwise = 1
 
-class FillStyle(Constants):
+class FillStyle(FigConstants):
     """cf. `Object.fillStyle` property"""
     None_                = -1
     Black                = 0
@@ -155,7 +160,7 @@ class FillStyle(Constants):
         `percent` decides between 0 = white .. 100 = fillColor (5% steps)"""
         return FillStyle(40 - int(round(percent / 5.0)))
 
-class ArrowType(Constants):
+class ArrowType(FigConstants):
     """cf. `Arrow` class"""
     Stick = 0
     "stick-type, three-stroke arrow head (default in xfig 2.1 and earlier)"
@@ -188,14 +193,14 @@ class ArrowType(Constants):
     OpenRectangle = 14
     "open rectangle (direction determined by arrow style)"
 
-class ArrowStyle(Constants):
+class ArrowStyle(FigConstants):
     """cf. `Arrow` class"""
     Hollow = 0
     "filled with white"
     Filled = 1
     "filled with penColor"
 
-class LineStyle(Constants):
+class LineStyle(FigConstants):
     """cf. `Object.lineStyle` property"""
     Default          = -1
     Solid            = 0
@@ -205,13 +210,13 @@ class LineStyle(Constants):
     DashDoubleDotted = 4
     DashTripleDotted = 5
 
-class CapStyle(Constants):
+class CapStyle(FigConstants):
     """cf. `Object.capStyle` property, used by Polyline, OpenArc, and open splines"""
     Butt = 0
     Round = 1
     Projecting = 2
 
-class JoinStyle(Constants):
+class JoinStyle(FigConstants):
     """cf. `Object.joinStyle` property, used for `Polyline` objects only"""
     Miter = 0
     Round = 1
@@ -299,13 +304,20 @@ class Color(Constants):
     Gold      = 31
     Custom0   = 32
 
-class Alignment(Constants):
+    @classmethod
+    def read(cls, i):
+        i = int(i)
+        if i <= Color.Custom0:
+            return Color(i)
+        return i
+    
+class Alignment(FigConstants):
     """cf. `Text.alignment` property"""
     Left     = 0
     Centered = 1
     Right    = 2
 
-class Font(Constants):
+class Font(FigConstants):
     """cf. `Text.font` property, only valid if `Text.fontFlags` & FontFlag.PostScript"""
     Default                        = -1
     TimesRoman                     = 0
@@ -344,7 +356,7 @@ class Font(Constants):
     ZapfChanceryMediumItalic       = 33
     ZapfDingbats                   = 34
 
-class LaTeXFont(Constants):
+class LaTeXFont(FigConstants):
     """cf. `Text.font` property, only valid if `Text.fontFlags` & FontFlag.PostScript == 0"""
     LaTeXDefault = 0
     LaTeXRoman = 1
@@ -907,15 +919,15 @@ class OpenArc(ArcBase):
 def _readArcBase(params):
 	result = ArcBase()
 	result.changeType(int(params[0]))
-	result.lineStyle = int(params[1])
+	result.lineStyle = LineStyle.read(params[1])
 	result.lineWidth = int(params[2])
-	result.penColor = int(params[3])
-	result.fillColor = int(params[4])
+	result.penColor = Color.read(params[3])
+	result.fillColor = Color.read(params[4])
 	result.depth = int(params[5])
 	result.penStyle = int(params[6])
-	result.fillStyle = int(params[7])
+	result.fillStyle = FillStyle.read(params[7])
 	result.styleValue = float(params[8])
-	result.capStyle = int(params[9])
+	result.capStyle = CapStyle.read(params[9])
 	result.direction = int(params[10])
 	subLines = 0
 	if int(params[11]):
@@ -1006,13 +1018,13 @@ class EllipseBase(Object):
 def _readEllipseBase(params):
 	result = EllipseBase()
 	result.changeType(int(params[0]))
-	result.lineStyle = int(params[1])
+	result.lineStyle = LineStyle.read(params[1])
 	result.lineWidth = int(params[2])
-	result.penColor = int(params[3])
-	result.fillColor = int(params[4])
+	result.penColor = Color.read(params[3])
+	result.fillColor = Color.read(params[4])
 	result.depth = int(params[5])
 	result.penStyle = int(params[6])
-	result.fillStyle = int(params[7])
+	result.fillStyle = FillStyle.read(params[7])
 	result.styleValue = float(params[8])
 	result.angle = float(params[10])
 	result.center = Vector(int(params[11]), int(params[12]))
@@ -1229,16 +1241,16 @@ def _readPolylineBase(params):
 	result = PolylineBase()
 	# retainPoints is not actually necessary for PolylineBase objects:
 	result.changeType(int(params[0]), retainPoints = True)
-	result.lineStyle = int(params[1])
+	result.lineStyle = LineStyle.read(params[1])
 	result.lineWidth = int(params[2])
-	result.penColor = int(params[3])
-	result.fillColor = int(params[4])
+	result.penColor = Color.read(params[3])
+	result.fillColor = Color.read(params[4])
 	result.depth = int(params[5])
 	result.penStyle = int(params[6])
-	result.fillStyle = int(params[7])
+	result.fillStyle = FillStyle.read(params[7])
 	result.styleValue = float(params[8])
-	result.joinStyle = int(params[9])
-	result.capStyle = int(params[10])
+	result.joinStyle = JoinStyle.read(params[9])
+	result.capStyle = CapStyle.read(params[10])
 	result.radius = int(params[11])
 	subLines = 0
 	if int(params[12]):
@@ -1554,15 +1566,15 @@ class XSpline(SplineBase):
 def _readSplineBase(params):
 	result = SplineBase()
 	result.changeType(int(params[0]))
-	result.lineStyle = int(params[1])
+	result.lineStyle = LineStyle.read(params[1])
 	result.lineWidth = int(params[2])
-	result.penColor = int(params[3])
-	result.fillColor = int(params[4])
+	result.penColor = Color.read(params[3])
+	result.fillColor = Color.read(params[4])
 	result.depth = int(params[5])
 	result.penStyle = int(params[6])
-	result.fillStyle = int(params[7])
+	result.fillStyle = FillStyle.read(params[7])
 	result.styleValue = float(params[8])
-	result.capStyle = int(params[9])
+	result.capStyle = CapStyle.read(params[9])
 	subLines = 0
 	if int(params[10]):
 		result.forwardArrow = True
@@ -1670,10 +1682,10 @@ def _unescapeText(text):
 def _readText(params, text):
 	result = Text(Vector(int(params[10]), int(params[11])), _unescapeText(text),
 				  alignment = int(params[0]))
-	result.penColor = int(params[1])
+	result.penColor = Color.read(params[1])
 	result.depth = int(params[2])
 	result.penStyle = int(params[3])
-	result.font = int(params[4])
+	result.font = Font.read(params[4])
 	result.fontSize = float(params[5])
 	result.angle = float(params[6])
 	result.fontFlags = int(params[7])
