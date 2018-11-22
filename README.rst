@@ -10,7 +10,7 @@ interface to XFig_ documents.  (Conceptually, some kind of DOM.)
 For example, imagine you have the following `example file
 <test.fig>`_ ``test.fig``, created by Gnuplot:
 
-.. image:: test.png
+.. image:: images/test.png
    :alt: Gnuplot-generated test.fig
 
 Now you can simply load the file, examine and process it, for example
@@ -92,7 +92,7 @@ via fig2dev_:
 
 This produces the following ``processed.png``:
 
-.. image:: processed.png
+.. image:: images/processed.png
    :alt: processed XFig file, converted to PNG with the above command
 
 .. _File: apidox/fig.File-class.html
