@@ -225,10 +225,8 @@ make sure that no data is lost - by using the command ::
 Example Scripts
 ===============
 
-In the following, I offer some more simple example scripts using the
+In the following, I describe some more simple example scripts using the
 above ``fig.py`` module.
-
-{software/figpy/figdep}
 
 figdep
 ------
@@ -238,8 +236,6 @@ included in Makefiles; e.g. to automatically regenerate your EPS/PDF
 files from the ``.fig`` ones if an included image has changed.
 
   USAGE: ./figdep <infile1> [<infile2> ...]
-
-{software/figpy/fig2tikz}
 
 fig2tikz
 --------
@@ -329,8 +325,6 @@ via the PGF CVS repository, ever was.
 
 .. _TikZ: http://sourceforge.net/projects/pgf/
 
-{software/figpy/mergeFigs}
-
 mergeFigs
 ---------
 
@@ -339,8 +333,6 @@ This is another very simple, small script which merges two files.
 handling custom color definitions.)
 
   USAGE: ./mergeFigs <infile1> <infile2> [outfile]
-
-{software/figpy/extractLayers}
 
 extractLayers
 -------------
@@ -370,8 +362,6 @@ sth. like that).
 
 .. _XFig: http://www.xfig.org/
 
-{software/figpy/dimFig}
-
 dimFig
 ------
 
@@ -397,8 +387,6 @@ presentation::
   %_dimmed.fig: %.fig
       dimFig $< \#ffffff 15 | \
       sed 's,\.\(png\|eps\),_dimmed.\1,' > $@
-
-{software/figpy/fig2pdf}
 
 fig2pdf
 -------
