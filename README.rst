@@ -101,24 +101,6 @@ This produces the following ``processed.png``:
 .. _Container: apidox/fig.Container-class.html
 .. _fig2dev: apidox/fig.File.fig2dev-class.html
 
-Download
-========
-
-You can download the last release of ``fig.py`` here:
-
-.. download:: software/figpy/fig.py
-
-I plan to eventually split the module into several ones, wrap them in
-a Python package and provide a setuptools-based installer for a more
-proper release.
-
-You can also access my `mercurial repository`__ online or check it out
-as follows::
-
-  hg clone http://www.informatik.uni-hamburg.de/~meine/hg/figpy/
-
-__ http://www.informatik.uni-hamburg.de/~meine/hg/figpy/
-
 Documentation
 =============
 
